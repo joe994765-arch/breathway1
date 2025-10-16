@@ -6,9 +6,11 @@ const Header = () => {
   const location = useLocation();
   
   const navItems = [
-    { path: "/", label: "Home" },
+    { path: "/dashboard", label: "Home" },
+    { path: "/history", label: "My History" },
     { path: "/analytics", label: "Analytics" },
     { path: "/about", label: "About" },
+    { path: "/", label: "Logout" },
   ];
   
   return (
