@@ -14,26 +14,61 @@ const Login = () => {
   const [loginData, setLoginData] = useState({ email: "", password: "" });
   const [signupData, setSignupData] = useState({ name: "", email: "", password: "", confirmPassword: "" });
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Welcome back!");
-    navigate("/dashboard");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: loginData.email.trim().toLowerCase(),
+          password: loginData.password,
+        }),
+      });
+      if (!res.ok) {
+        const msg = await res.json().catch(() => ({ message: "Login failed" }));
+        throw new Error(msg.message || "Login failed");
+      }
+      const user = await res.json();
+      toast.success(`Welcome back, ${user.name || "user"}!`);
+      navigate("/dashboard");
+    } catch (err: any) {
+      toast.error(err.message || "Login failed");
+    }
   };
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (signupData.password !== signupData.confirmPassword) {
       toast.error("Passwords do not match!");
       return;
     }
-    toast.success("Account created successfully!");
-    navigate("/dashboard");
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: signupData.name.trim(),
+          email: signupData.email.trim().toLowerCase(),
+          password: signupData.password,
+        }),
+      });
+      if (!res.ok) {
+        const msg = await res.json().catch(() => ({ message: "Signup failed" }));
+        throw new Error(msg.message || "Signup failed");
+      }
+      const user = await res.json();
+      toast.success(`Account created. Welcome, ${user.name || "user"}!`);
+      navigate("/dashboard");
+    } catch (err: any) {
+      toast.error(err.message || "Signup failed");
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-clean p-4">
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxwYXR0ZXJuIGlkPSJwYXR0ZXJuIiB4PSIwIiB5PSIwIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPjxjaXJjbGUgY3g9IjEiIGN5PSIxIiByPSIxIiBmaWxsPSJoc2woMTU4LCA2NCUsIDM1JSwgMC4xKSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNwYXR0ZXJuKSIvPjwvc3ZnPg==')] opacity-30" />
-      
+
       <Card className="w-full max-w-md glass-card shadow-glow animate-fade-in relative z-10">
         <div className="p-8 space-y-6">
           <div className="text-center space-y-2">
