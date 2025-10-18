@@ -5,6 +5,7 @@ import RouteInputPanel from "@/components/RouteInputPanel";
 import MapView from "@/components/MapView";
 import RouteInfoCard from "@/components/RouteInfoCard";
 import RouteComparisonCard from "@/components/RouteComparisonCard";
+import UserProfile from "@/components/UserProfile";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
@@ -17,6 +18,7 @@ const Dashboard = () => {
   const [showResults, setShowResults] = useState(false);
   const [optimizeMode, setOptimizeMode] = useState<"cleanest" | "fastest">("cleanest");
   const [routeData, setRouteData] = useState<RouteResponse | null>(null);
+  const [userEmail, setUserEmail] = useState("hemant@example.com"); // This should come from auth context
 
   const handleSearch = (source: string, destination: string) => {
     toast.success(`Searching routes from ${source} to ${destination}`);
@@ -71,7 +73,7 @@ const Dashboard = () => {
               </div>
             </Card>
 
-            <RouteInputPanel onSearch={handleSearch} onRouteData={handleRouteData} />
+            <RouteInputPanel onSearch={handleSearch} onRouteData={handleRouteData} userEmail={userEmail} />
 
             <Card className="p-4 glass-card">
               <div className="flex items-center justify-between">
@@ -87,6 +89,9 @@ const Dashboard = () => {
             </Card>
 
             {showResults && <RouteInfoCard routeData={routeData} />}
+
+            {/* User Profile */}
+            <UserProfile userEmail={userEmail} />
           </div>
 
           {/* Map Area */}

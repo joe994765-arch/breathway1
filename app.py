@@ -296,6 +296,137 @@ def api_get_history(user_email):
         print(f"History error: {e}")
         return jsonify({"error": "Failed to fetch history"}), 500
 
+@app.route("/api/user/<user_email>", methods=["GET"])
+def api_get_user(user_email):
+    """Get user profile data"""
+    try:
+        user = users_collection.find_one({"email": user_email})
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        # Convert ObjectId to string
+        user["_id"] = str(user["_id"])
+        
+        return jsonify({
+            "success": True,
+            "user": {
+                "name": user["name"],
+                "email": user["email"],
+                "created_at": user["created_at"],
+                "total_routes": user.get("total_routes", 0),
+                "preferences": user.get("preferences", {
+                    "default_mode": "driving-car",
+                    "optimize_for": "cleanest"
+                })
+            }
+        })
+    except Exception as e:
+        print(f"User fetch error: {e}")
+        return jsonify({"error": "Failed to fetch user data"}), 500
+
+@app.route("/api/history/<user_email>/download/<format>", methods=["GET"])
+def api_download_history(user_email, format):
+    """Download user's route history in CSV or PDF format"""
+    try:
+        # Get all routes for the user
+        routes = list(routes_collection.find(
+            {"user_email": user_email}
+        ).sort("created_at", -1))
+        
+        if format == "csv":
+            import csv
+            import io
+            
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # Write header
+            writer.writerow([
+                "Date", "Source", "Destination", "Distance (km)", "Duration (min)",
+                "Source AQI", "Dest AQI", "Avg AQI", "Avg Temp (°C)", "Avg Wind (m/s)"
+            ])
+            
+            # Write data
+            for route in routes:
+                writer.writerow([
+                    route["created_at"][:10],  # Date only
+                    route["source"]["city"],
+                    route["destination"]["city"],
+                    route["route"]["distance"],
+                    route["route"]["duration"],
+                    route["source"]["aqi"],
+                    route["destination"]["aqi"],
+                    route["averages"]["aqi"],
+                    route["averages"]["temperature"],
+                    route["averages"]["wind_speed"]
+                ])
+            
+            from flask import Response
+            output.seek(0)
+            return Response(
+                output.getvalue(),
+                mimetype="text/csv",
+                headers={"Content-Disposition": f"attachment; filename=route_history_{user_email}.csv"}
+            )
+        
+        elif format == "pdf":
+            from reportlab.lib.pagesizes import letter
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet
+            from reportlab.lib import colors
+            import io
+            
+            buffer = io.BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=letter)
+            styles = getSampleStyleSheet()
+            story = []
+            
+            # Title
+            title = Paragraph(f"Route History for {user_email}", styles['Title'])
+            story.append(title)
+            story.append(Spacer(1, 20))
+            
+            # Create table
+            data = [["Date", "Source", "Destination", "Distance", "Duration", "Avg AQI"]]
+            for route in routes:
+                data.append([
+                    route["created_at"][:10],
+                    route["source"]["city"],
+                    route["destination"]["city"],
+                    f"{route['route']['distance']} km",
+                    f"{route['route']['duration']} min",
+                    str(route["averages"]["aqi"])
+                ])
+            
+            table = Table(data)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 14),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            
+            story.append(table)
+            doc.build(story)
+            
+            buffer.seek(0)
+            return Response(
+                buffer.getvalue(),
+                mimetype="application/pdf",
+                headers={"Content-Disposition": f"attachment; filename=route_history_{user_email}.pdf"}
+            )
+        
+        else:
+            return jsonify({"error": "Invalid format. Use 'csv' or 'pdf'"}), 400
+            
+    except Exception as e:
+        print(f"Download error: {e}")
+        return jsonify({"error": "Failed to generate download"}), 500
+
 # ----------------- AUTHENTICATION ROUTES -----------------
 @app.route("/api/auth/signup", methods=["POST"])
 def api_signup():

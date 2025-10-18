@@ -1,5 +1,7 @@
+import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Line, Bar } from "react-chartjs-2";
@@ -20,6 +22,7 @@ import {
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
 
 const AnalyticsView = () => {
+  const [userEmail, setUserEmail] = useState("hemant@example.com"); // This should come from auth context
   const lineChartData = {
     labels: ["Jan 1", "Jan 5", "Jan 10", "Jan 15", "Jan 20", "Jan 25"],
     datasets: [
@@ -78,6 +81,9 @@ const AnalyticsView = () => {
           <p className="text-muted-foreground">Track pollution trends and route statistics</p>
         </div>
 
+        {/* Real Analytics Dashboard */}
+        <AnalyticsDashboard userEmail={userEmail} />
+
         <div className="grid md:grid-cols-4 gap-4">
           <Card className="p-6 glass-card shadow-elevated">
             <div className="flex items-center justify-between">
@@ -89,7 +95,7 @@ const AnalyticsView = () => {
               <MapPin className="h-10 w-10 text-primary/20" />
             </div>
           </Card>
-          
+
           <Card className="p-6 glass-card shadow-elevated">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
@@ -100,7 +106,7 @@ const AnalyticsView = () => {
               <Wind className="h-10 w-10 text-primary/20" />
             </div>
           </Card>
-          
+
           <Card className="p-6 glass-card shadow-elevated">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
@@ -161,9 +167,8 @@ const AnalyticsView = () => {
                   <p className="text-xs text-muted-foreground">{route.date}</p>
                 </div>
                 <div className="flex items-center gap-4 text-sm">
-                  <span className={`font-semibold ${
-                    route.aqi <= 50 ? "text-green-600" : route.aqi <= 100 ? "text-yellow-600" : "text-red-600"
-                  }`}>
+                  <span className={`font-semibold ${route.aqi <= 50 ? "text-green-600" : route.aqi <= 100 ? "text-yellow-600" : "text-red-600"
+                    }`}>
                     AQI: {route.aqi}
                   </span>
                   <span className="text-muted-foreground">{route.distance}</span>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Navigation2, Wind, Thermometer, MapPin, Calendar } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Clock, Navigation2, Wind, Thermometer, MapPin, Calendar, Download } from "lucide-react";
 import { apiService, HistoryResponse } from "@/lib/api";
 
 interface RouteHistoryProps {
@@ -49,9 +50,52 @@ const RouteHistory = ({ userEmail }: RouteHistoryProps) => {
         );
     }
 
+    const handleDownload = async (format: 'csv' | 'pdf') => {
+        try {
+            const response = await fetch(`http://localhost:5000/api/history/${encodeURIComponent(userEmail)}/download/${format}`);
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `route_history_${userEmail}.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } else {
+                console.error('Download failed');
+            }
+        } catch (error) {
+            console.error('Download error:', error);
+        }
+    };
+
     return (
         <Card className="p-6 glass-card shadow-soft">
-            <h3 className="text-lg font-semibold mb-4">Route History ({history.count})</h3>
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Route History ({history.count})</h3>
+                <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownload('csv')}
+                        className="flex items-center gap-2"
+                    >
+                        <Download className="h-4 w-4" />
+                        CSV
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownload('pdf')}
+                        className="flex items-center gap-2"
+                    >
+                        <Download className="h-4 w-4" />
+                        PDF
+                    </Button>
+                </div>
+            </div>
 
             <div className="space-y-4 max-h-96 overflow-y-auto">
                 {history.routes.map((route, index) => (

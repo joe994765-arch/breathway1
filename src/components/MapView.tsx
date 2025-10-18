@@ -24,12 +24,12 @@ const MapView = ({ className, routeData }: MapViewProps) => {
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Initialize map with default view or route data
-    const defaultCenter: [number, number] = [28.6139, 77.2090];
-    const defaultZoom = 12;
+    // Initialize map with India view by default, or route data if available
+    const indiaCenter: [number, number] = [20.5937, 78.9629]; // Center of India
+    const indiaZoom = 5; // Show full India
 
-    let center = defaultCenter;
-    let zoom = defaultZoom;
+    let center = indiaCenter;
+    let zoom = indiaZoom;
 
     if (routeData) {
       const source = routeData.route.source;
@@ -79,12 +79,22 @@ const MapView = ({ className, routeData }: MapViewProps) => {
         Avg AQI: ${routeData.route.aqi}
       `);
     } else {
-      // Default demo markers
-      const sourceMarker = L.marker([28.6139, 77.2090]).addTo(map);
-      sourceMarker.bindPopup("<b>Source</b><br>Enter your route to see details");
+      // Show India with major cities
+      const majorCities = [
+        { name: "Delhi", lat: 28.6139, lon: 77.2090 },
+        { name: "Mumbai", lat: 19.0760, lon: 72.8777 },
+        { name: "Bangalore", lat: 12.9716, lon: 77.5946 },
+        { name: "Chennai", lat: 13.0827, lon: 80.2707 },
+        { name: "Kolkata", lat: 22.5726, lon: 88.3639 },
+        { name: "Hyderabad", lat: 17.3850, lon: 78.4867 },
+        { name: "Pune", lat: 18.5204, lon: 73.8567 },
+        { name: "Ahmedabad", lat: 23.0225, lon: 72.5714 }
+      ];
 
-      const destMarker = L.marker([28.5355, 77.3910]).addTo(map);
-      destMarker.bindPopup("<b>Destination</b><br>Enter your route to see details");
+      majorCities.forEach(city => {
+        const marker = L.marker([city.lat, city.lon]).addTo(map);
+        marker.bindPopup(`<b>${city.name}</b><br>Click to plan route from/to this city`);
+      });
     }
 
     mapRef.current = map;
