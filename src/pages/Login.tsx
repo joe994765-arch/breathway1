@@ -17,7 +17,7 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("http://localhost:5000/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -30,7 +30,7 @@ const Login = () => {
         throw new Error(msg.message || "Login failed");
       }
       const user = await res.json();
-      toast.success(`Welcome back, ${user.name || "user"}!`);
+      toast.success(`Welcome back, ${user.user?.name || "user"}!`);
       navigate("/dashboard");
     } catch (err: any) {
       toast.error(err.message || "Login failed");
@@ -44,7 +44,7 @@ const Login = () => {
       return;
     }
     try {
-      const res = await fetch("/api/auth/signup", {
+      const res = await fetch("http://localhost:5000/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -58,7 +58,7 @@ const Login = () => {
         throw new Error(msg.message || "Signup failed");
       }
       const user = await res.json();
-      toast.success(`Account created. Welcome, ${user.name || "user"}!`);
+      toast.success(`Account created. Welcome, ${user.user?.name || "user"}!`);
       navigate("/dashboard");
     } catch (err: any) {
       toast.error(err.message || "Signup failed");
@@ -77,7 +77,7 @@ const Login = () => {
                 <Leaf className="h-8 w-8 text-primary" />
               </div>
             </div>
-            <h1 className="text-3xl font-bold bg-gradient-eco bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold bg-gradient-eco bg-clip-text text-primary">
               Pollution Aware Route Planner
             </h1>
             <p className="text-muted-foreground">Plan Smarter. Breathe Cleaner.</p>

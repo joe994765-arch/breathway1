@@ -11,20 +11,26 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { MapPin, Clock, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
+import { RouteResponse } from "@/lib/api";
 
 const Dashboard = () => {
   const [showResults, setShowResults] = useState(false);
   const [optimizeMode, setOptimizeMode] = useState<"cleanest" | "fastest">("cleanest");
+  const [routeData, setRouteData] = useState<RouteResponse | null>(null);
 
   const handleSearch = (source: string, destination: string) => {
     toast.success(`Searching routes from ${source} to ${destination}`);
     setShowResults(true);
   };
 
+  const handleRouteData = (data: RouteResponse) => {
+    setRouteData(data);
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      
+
       <main className="flex-1 container py-8">
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Left Panel */}
@@ -65,7 +71,7 @@ const Dashboard = () => {
               </div>
             </Card>
 
-            <RouteInputPanel onSearch={handleSearch} />
+            <RouteInputPanel onSearch={handleSearch} onRouteData={handleRouteData} />
 
             <Card className="p-4 glass-card">
               <div className="flex items-center justify-between">
@@ -80,45 +86,32 @@ const Dashboard = () => {
               </div>
             </Card>
 
-            {showResults && <RouteInfoCard />}
+            {showResults && <RouteInfoCard routeData={routeData} />}
           </div>
 
           {/* Map Area */}
           <div className="lg:col-span-2">
-            <MapView className="h-full" />
+            <MapView className="h-full" routeData={routeData} />
           </div>
         </div>
 
-        {/* Route Comparison */}
-        {showResults && (
+        {/* Single Route Display */}
+        {showResults && routeData && (
           <div className="mt-8 space-y-6 animate-slide-up">
             <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold">Compare Routes</h2>
+              <h2 className="text-2xl font-bold">Your Route</h2>
               <p className="text-muted-foreground">
-                Choose the best route based on your priorities
+                {routeData.route.name}
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid md:grid-cols-1 lg:grid-cols-1 gap-4">
               <RouteComparisonCard
-                routeName="Route A - Via Ring Road"
-                distance="12.5 km"
-                time="25 min"
-                aqi={45}
+                routeName={routeData.route.name}
+                distance={`${routeData.route.distance} km`}
+                time={`${routeData.route.duration} min`}
+                aqi={routeData.route.aqi}
                 isBest
-              />
-              <RouteComparisonCard
-                routeName="Route B - Via Highway"
-                distance="10.2 km"
-                time="18 min"
-                aqi={78}
-                isFastest
-              />
-              <RouteComparisonCard
-                routeName="Route C - Via City Center"
-                distance="14.8 km"
-                time="32 min"
-                aqi={125}
               />
             </div>
           </div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import RouteHistory from "@/components/RouteHistory";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ const mockHistory = [
 
 const History = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [userEmail, setUserEmail] = useState("test@example.com"); // This should come from auth context
 
   const filteredHistory = mockHistory.filter(
     (route) =>
@@ -152,6 +154,9 @@ const History = () => {
           <Card className="p-6 glass-card shadow-elevated">
             <Line data={chartData} options={chartOptions} />
           </Card>
+
+          {/* Real Route History from MongoDB */}
+          <RouteHistory userEmail={userEmail} />
 
           <div className="space-y-4">
             {filteredHistory.map((route) => {

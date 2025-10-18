@@ -3,18 +3,38 @@ import { MapPin, Navigation, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { apiService, RouteResponse } from "@/lib/api";
+import { toast } from "sonner";
 
 interface RouteInputPanelProps {
   onSearch: (source: string, destination: string) => void;
+  onRouteData?: (data: RouteResponse) => void;
+  userEmail?: string;
 }
 
-const RouteInputPanel = ({ onSearch }: RouteInputPanelProps) => {
+const RouteInputPanel = ({ onSearch, onRouteData, userEmail }: RouteInputPanelProps) => {
   const [source, setSource] = useState("");
   const [destination, setDestination] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSearch = () => {
-    if (source && destination) {
+  const handleSearch = async () => {
+    if (!source || !destination) {
+      toast.error("Please enter both source and destination");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const routeData = await apiService.getRoute(source, destination, "driving-car", userEmail);
       onSearch(source, destination);
+      if (onRouteData) {
+        onRouteData(routeData);
+      }
+      toast.success(`Route found: ${routeData.route.distance}km, ${routeData.route.duration}min`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to find route");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -58,9 +78,10 @@ const RouteInputPanel = ({ onSearch }: RouteInputPanelProps) => {
             variant="hero"
             size="lg"
             className="w-full"
+            disabled={isLoading}
           >
             <Sparkles className="h-5 w-5" />
-            Find Routes
+            {isLoading ? "Finding Routes..." : "Find Routes"}
           </Button>
         </div>
       </div>
