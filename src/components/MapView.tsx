@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Card } from "@/components/ui/card";
-import { RouteResponse } from "@/lib/api";
+import { RouteInfo } from "@/lib/api";
 
 // Fix for default marker icons in leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -14,7 +14,7 @@ L.Icon.Default.mergeOptions({
 
 interface MapViewProps {
   className?: string;
-  routeData?: RouteResponse | null;
+  routeData?: RouteInfo | null;
 }
 
 const MapView = ({ className, routeData }: MapViewProps) => {
@@ -32,8 +32,8 @@ const MapView = ({ className, routeData }: MapViewProps) => {
     let zoom = indiaZoom;
 
     if (routeData) {
-      const source = routeData.route.source;
-      const dest = routeData.route.destination;
+      const source = routeData.source;
+      const dest = routeData.destination;
       center = [(source.lat + dest.lat) / 2, (source.lon + dest.lon) / 2];
       zoom = 8;
     }
@@ -47,24 +47,24 @@ const MapView = ({ className, routeData }: MapViewProps) => {
 
     if (routeData) {
       // Add source marker
-      const sourceMarker = L.marker([routeData.route.source.lat, routeData.route.source.lon]).addTo(map);
+      const sourceMarker = L.marker([routeData.source.lat, routeData.source.lon]).addTo(map);
       sourceMarker.bindPopup(`
-        <b>${routeData.route.source.city}</b><br>
-        AQI: ${routeData.route.source.aqi}<br>
-        Temp: ${routeData.route.source.temp}°C
+        <b>${routeData.source.city}</b><br>
+        AQI: ${routeData.source.aqi}<br>
+        Temp: ${routeData.source.temp}°C
       `);
 
       // Add destination marker
-      const destMarker = L.marker([routeData.route.destination.lat, routeData.route.destination.lon]).addTo(map);
+      const destMarker = L.marker([routeData.destination.lat, routeData.destination.lon]).addTo(map);
       destMarker.bindPopup(`
-        <b>${routeData.route.destination.city}</b><br>
-        AQI: ${routeData.route.destination.aqi}<br>
-        Temp: ${routeData.route.destination.temp}°C
+        <b>${routeData.destination.city}</b><br>
+        AQI: ${routeData.destination.aqi}<br>
+        Temp: ${routeData.destination.temp}°C
       `);
 
       // Add route polyline
-      const routePoints = routeData.route.geometry.map(coord => [coord[1], coord[0]] as [number, number]);
-      const routeColor = routeData.route.aqi <= 50 ? "green" : routeData.route.aqi <= 100 ? "orange" : "red";
+      const routePoints = routeData.geometry.map(coord => [coord[1], coord[0]] as [number, number]);
+      const routeColor = routeData.aqi <= 50 ? "green" : routeData.aqi <= 100 ? "orange" : "red";
 
       const routePolyline = L.polyline(routePoints, {
         color: routeColor,
@@ -73,10 +73,10 @@ const MapView = ({ className, routeData }: MapViewProps) => {
       }).addTo(map);
 
       routePolyline.bindPopup(`
-        <b>${routeData.route.name}</b><br>
-        Distance: ${routeData.route.distance} km<br>
-        Duration: ${routeData.route.duration} min<br>
-        Avg AQI: ${routeData.route.aqi}
+        <b>${routeData.name}</b><br>
+        Distance: ${routeData.distance} km<br>
+        Duration: ${routeData.duration} min<br>
+        Avg AQI: ${routeData.aqi}
       `);
     } else {
       // Show India with major cities

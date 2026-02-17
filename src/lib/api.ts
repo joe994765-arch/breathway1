@@ -24,25 +24,47 @@ export interface RouteData {
     geometry: number[][];
 }
 
+export interface TrafficData {
+    status: 'light' | 'moderate' | 'heavy' | 'unknown';
+    delay_minutes: number;
+    average_speed: number;
+    samples?: number;
+}
+
+export interface RouteInfo {
+    name: string;
+    type: 'fastest' | 'cleanest' | 'balanced';
+    distance: number;
+    duration: number;
+    traffic_adjusted_duration?: number | null;
+    aqi: number;
+    score: number;
+    source: WeatherData;
+    destination: WeatherData;
+    averages: {
+        aqi: number;
+        temperature: number;
+        wind_speed: number;
+    };
+    geometry: number[][];
+    map_file: string;
+    distance_geo: number;
+    temperature_difference: number;
+    traffic?: TrafficData | null;
+    ml_preference?: number;
+    ml_confidence?: number;
+    ml_probabilities?: {
+        fastest: number;
+        cleanest: number;
+        balanced: number;
+    };
+}
+
 export interface RouteResponse {
     success: boolean;
-    route: {
-        name: string;
-        distance: number;
-        duration: number;
-        aqi: number;
-        source: WeatherData;
-        destination: WeatherData;
-        averages: {
-            aqi: number;
-            temperature: number;
-            wind_speed: number;
-        };
-        geometry: number[][];
-        map_file: string;
-        distance_geo: number;
-        temperature_difference: number;
-    };
+    routes: RouteInfo[];
+    recommended: number;
+    mode: string;
 }
 
 export interface HistoryResponse {

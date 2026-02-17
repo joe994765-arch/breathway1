@@ -3,21 +3,17 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RouteInputPanel from "@/components/RouteInputPanel";
 import MapView from "@/components/MapView";
-import RouteInfoCard from "@/components/RouteInfoCard";
-import RouteComparisonCard from "@/components/RouteComparisonCard";
+import RouteComparisonGrid from "@/components/RouteComparisonGrid";
 import UserProfile from "@/components/UserProfile";
 import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { MapPin, Clock, TrendingUp } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { toast } from "sonner";
-import { RouteResponse } from "@/lib/api";
+import { RouteResponse, RouteInfo } from "@/lib/api";
 
 const Dashboard = () => {
   const [showResults, setShowResults] = useState(false);
-  const [optimizeMode, setOptimizeMode] = useState<"cleanest" | "fastest">("cleanest");
   const [routeData, setRouteData] = useState<RouteResponse | null>(null);
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0);
   const [userEmail, setUserEmail] = useState("hemant@example.com"); // This should come from auth context
 
   const handleSearch = (source: string, destination: string) => {
@@ -27,7 +23,15 @@ const Dashboard = () => {
 
   const handleRouteData = (data: RouteResponse) => {
     setRouteData(data);
+    setSelectedRouteIndex(data.recommended); // Select recommended route by default
   };
+
+  const handleRouteSelect = (route: RouteInfo, index: number) => {
+    setSelectedRouteIndex(index);
+    toast.info(`Selected ${route.type} route`);
+  };
+
+  const selectedRoute = routeData?.routes[selectedRouteIndex];
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -37,58 +41,7 @@ const Dashboard = () => {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Left Panel */}
           <div className="lg:col-span-1 space-y-6">
-            <Card className="p-6 glass-card shadow-elevated">
-              <div className="flex items-center gap-4 mb-6">
-                <Avatar className="h-16 w-16 border-2 border-primary/20">
-                  <AvatarFallback className="bg-gradient-eco text-white text-xl">H</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h3 className="font-semibold text-lg">Hemant Kumar</h3>
-                  <p className="text-sm text-muted-foreground">hemant@example.com</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    <span className="text-sm">Routes Planned</span>
-                  </div>
-                  <span className="font-bold text-lg">24</span>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-primary" />
-                    <span className="text-sm">Last Login</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">Today 9:45 AM</span>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-primary" />
-                    <span className="text-sm">Best AQI Route</span>
-                  </div>
-                  <span className="font-bold text-sm text-green-600">38 (Good)</span>
-                </div>
-              </div>
-            </Card>
-
             <RouteInputPanel onSearch={handleSearch} onRouteData={handleRouteData} userEmail={userEmail} />
-
-            <Card className="p-4 glass-card">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="optimize-mode" className="text-sm font-medium">
-                  Optimize for {optimizeMode === "cleanest" ? "Cleanest" : "Fastest"}
-                </Label>
-                <Switch
-                  id="optimize-mode"
-                  checked={optimizeMode === "fastest"}
-                  onCheckedChange={(checked) => setOptimizeMode(checked ? "fastest" : "cleanest")}
-                />
-              </div>
-            </Card>
-
-            {showResults && <RouteInfoCard routeData={routeData} />}
 
             {/* User Profile */}
             <UserProfile userEmail={userEmail} />
@@ -96,29 +49,54 @@ const Dashboard = () => {
 
           {/* Map Area */}
           <div className="lg:col-span-2">
-            <MapView className="h-full" routeData={routeData} />
+            {selectedRoute ? (
+              <MapView className="h-full" routeData={selectedRoute} />
+            ) : (
+              <Card className="h-full min-h-[500px] flex items-center justify-center glass-card shadow-elevated">
+                <div className="text-center space-y-4 p-8">
+                  <div className="w-20 h-20 mx-auto bg-gradient-eco rounded-full flex items-center justify-center">
+                    <MapPin className="h-10 w-10 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold">Plan Your Clean Route</h2>
+                  <p className="text-muted-foreground max-w-md">
+                    Enter your source and destination to find the cleanest, fastest, and most balanced routes with real-time AQI and traffic data.
+                  </p>
+                  <div className="flex items-center justify-center gap-6 pt-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-primary">3</div>
+                      <div className="text-xs text-muted-foreground">Route Options</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-primary">🚦</div>
+                      <div className="text-xs text-muted-foreground">Live Traffic</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-primary">🤖</div>
+                      <div className="text-xs text-muted-foreground">AI Powered</div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            )}
           </div>
         </div>
 
-        {/* Single Route Display */}
+        {/* Route Comparison Grid */}
         {showResults && routeData && (
           <div className="mt-8 space-y-6 animate-slide-up">
             <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold">Your Route</h2>
+              <h2 className="text-2xl font-bold">Route Options</h2>
               <p className="text-muted-foreground">
-                {routeData.route.name}
+                Compare {routeData.routes.length} routes from {selectedRoute?.source.city} to {selectedRoute?.destination.city}
               </p>
             </div>
 
-            <div className="grid md:grid-cols-1 lg:grid-cols-1 gap-4">
-              <RouteComparisonCard
-                routeName={routeData.route.name}
-                distance={`${routeData.route.distance} km`}
-                time={`${routeData.route.duration} min`}
-                aqi={routeData.route.aqi}
-                isBest
-              />
-            </div>
+            <RouteComparisonGrid
+              routes={routeData.routes}
+              recommendedIndex={routeData.recommended}
+              selectedIndex={selectedRouteIndex}
+              onRouteSelect={handleRouteSelect}
+            />
           </div>
         )}
       </main>

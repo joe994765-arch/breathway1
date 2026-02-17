@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { MapPin, Navigation, Sparkles } from "lucide-react";
+import { MapPin, Navigation, Sparkles, Car, Bike, PersonStanding } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { apiService, RouteResponse } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -15,6 +16,7 @@ interface RouteInputPanelProps {
 const RouteInputPanel = ({ onSearch, onRouteData, userEmail }: RouteInputPanelProps) => {
   const [source, setSource] = useState("");
   const [destination, setDestination] = useState("");
+  const [mode, setMode] = useState<"driving-car" | "cycling-regular" | "foot-walking">("driving-car");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSearch = async () => {
@@ -25,18 +27,24 @@ const RouteInputPanel = ({ onSearch, onRouteData, userEmail }: RouteInputPanelPr
 
     setIsLoading(true);
     try {
-      const routeData = await apiService.getRoute(source, destination, "driving-car", userEmail);
+      const routeData = await apiService.getRoute(source, destination, mode, userEmail);
       onSearch(source, destination);
       if (onRouteData) {
         onRouteData(routeData);
       }
-      toast.success(`Route found: ${routeData.route.distance}km, ${routeData.route.duration}min`);
+      toast.success(`Found ${routeData.routes.length} route options!`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to find route");
     } finally {
       setIsLoading(false);
     }
   };
+
+  const modeOptions = [
+    { value: "driving-car" as const, label: "Car", icon: Car },
+    { value: "cycling-regular" as const, label: "Bike", icon: Bike },
+    { value: "foot-walking" as const, label: "Walk", icon: PersonStanding },
+  ];
 
   return (
     <Card className="p-6 glass-card shadow-elevated animate-fade-in">
@@ -71,6 +79,28 @@ const RouteInputPanel = ({ onSearch, onRouteData, userEmail }: RouteInputPanelPr
               onChange={(e) => setDestination(e.target.value)}
               className="pl-11 h-12 shadow-soft focus:shadow-elevated transition-shadow"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Transport Mode</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {modeOptions.map((option) => {
+                const Icon = option.icon;
+                const isSelected = mode === option.value;
+                return (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant={isSelected ? "default" : "outline"}
+                    className={`h-12 ${isSelected ? "shadow-elevated" : ""}`}
+                    onClick={() => setMode(option.value)}
+                  >
+                    <Icon className="h-5 w-5 mr-2" />
+                    {option.label}
+                  </Button>
+                );
+              })}
+            </div>
           </div>
 
           <Button
