@@ -47,6 +47,8 @@ tomtom_api_key = os.getenv("TOMTOM_API_KEY")
 weather_url = "https://api.openweathermap.org/data/2.5/weather?"
 geocode_url = "https://api.openweathermap.org/geo/1.0/direct?"
 pollution_url = "https://api.openweathermap.org/data/2.5/air_pollution?"
+weather_forecast_url = "https://api.openweathermap.org/data/2.5/forecast?"
+pollution_forecast_url = "https://api.openweathermap.org/data/2.5/air_pollution/forecast?"
 ors_url = "https://api.openrouteservice.org/v2/directions/"
 tomtom_traffic_url = "https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json"
 
@@ -68,6 +70,14 @@ def find_city(city_name):
         print("Geocoding error:", e)
         return None
 
+def convert_aqi_to_raw(aqi_index):
+    """Convert OWM 1-5 AQI index to approx raw 0-500 scale"""
+    if not aqi_index: return 0
+    # Mapping: 1=Good(0-50), 2=Fair(50-100), 3=Moderate(100-150), 4=Poor(150-200), 5=Very Poor(200-500)
+    # We'll map to mid-points to approximate raw values from the index
+    base_map = {1: 25, 2: 75, 3: 125, 4: 175, 5: 250}
+    return base_map.get(aqi_index, 25)
+
 def get_weather(city):
     city_info = find_city(city)
     if not city_info:
@@ -83,7 +93,8 @@ def get_weather(city):
 
         p_res = requests.get(f"{pollution_url}lat={lat}&lon={lon}&appid={weather_api_key}")
         p_data = p_res.json()
-        aqi = p_data["list"][0]["main"]["aqi"]
+        raw_aqi_index = p_data["list"][0]["main"]["aqi"]
+        aqi = convert_aqi_to_raw(raw_aqi_index)
 
         return {
             "city": city_info["name"],
@@ -105,14 +116,101 @@ def get_weather(city):
         print("Weather/Pollution error:", e)
         return None
 
-def get_route(src, dest, mode="driving-car", alternatives=True):
+def get_weather_forecast(lat, lon):
+    """Get 5-day weather forecast"""
+    try:
+        url = f"{weather_forecast_url}lat={lat}&lon={lon}&units=metric&appid={weather_api_key}"
+        res = requests.get(url)
+        data = res.json()
+        # OWM returns string "200" for success in forecast api, unlike int 200 in weather
+        if str(data.get("cod")) != "200":
+            return None
+        return data["list"]
+    except Exception as e:
+        print("Weather forecast error:", e)
+        return None
+
+def get_aqi_forecast(lat, lon):
+    """Get AQI forecast"""
+    try:
+        url = f"{pollution_forecast_url}lat={lat}&lon={lon}&appid={weather_api_key}"
+        res = requests.get(url)
+        return res.json().get("list", [])
+    except Exception as e:
+        print("AQI forecast error:", e)
+        return []
+
+def process_forecast_data(weather_list, aqi_list):
+    """Process forecast data into daily summaries"""
+    daily_data = {}
+    
+    # Process Weather
+    for item in weather_list:
+        dt = datetime.fromtimestamp(item["dt"])
+        date_str = dt.strftime("%Y-%m-%d")
+        
+        if date_str not in daily_data:
+            daily_data[date_str] = {
+                "temps": [],
+                "weather": {},
+                "wind": [],
+                "aqi": []
+            }
+        
+        daily_data[date_str]["temps"].append(item["main"]["temp"])
+        daily_data[date_str]["wind"].append(item["wind"]["speed"])
+        
+        condition = item["weather"][0]["main"]
+        daily_data[date_str]["weather"][condition] = daily_data[date_str]["weather"].get(condition, 0) + 1
+
+    # Process AQI
+    for item in aqi_list:
+        dt = datetime.fromtimestamp(item["dt"])
+        date_str = dt.strftime("%Y-%m-%d")
+        
+        if date_str in daily_data:
+            raw_aqi_index = item["main"]["aqi"]
+            daily_data[date_str]["aqi"].append(convert_aqi_to_raw(raw_aqi_index))
+            
+    # Summarize
+    forecast = []
+    today = datetime.now().strftime("%Y-%m-%d")
+    
+    for date, data in daily_data.items():
+        if date == today: continue # Skip partial today data if desired, or keep
+        
+        if not data["temps"]: continue
+        
+        # Most frequent weather condition
+        main_condition = max(data["weather"].items(), key=lambda x: x[1])[0]
+        
+        avg_aqi = 0
+        if data["aqi"]:
+            avg_aqi = round(sum(data["aqi"]) / len(data["aqi"]))
+            
+        forecast.append({
+            "date": date,
+            "day_name": datetime.strptime(date, "%Y-%m-%d").strftime("%A"),
+            "min_temp": round(min(data["temps"]), 1),
+            "max_temp": round(max(data["temps"]), 1),
+            "avg_temp": round(sum(data["temps"]) / len(data["temps"]), 1),
+            "wind_speed": round(sum(data["wind"]) / len(data["wind"]), 1),
+            "condition": main_condition,
+            "aqi": avg_aqi
+        })
+        
+    return sorted(forecast, key=lambda x: x["date"])[:5]
+
+def get_route(src, dest, mode="driving-car", alternatives=True, preference="recommended"):
     """
     Get route(s) from ORS API
     If alternatives=True, requests up to 3 alternative routes
+    preference: "fastest" | "shortest" | "recommended"
     """
     headers = {"Authorization": ors_api_key, "Content-Type": "application/json"}
     body = {
-        "coordinates": [[src["lon"], src["lat"]], [dest["lon"], dest["lat"]]]
+        "coordinates": [[src["lon"], src["lat"]], [dest["lon"], dest["lat"]]],
+        "preference": preference
     }
     
     # Request alternative routes if enabled
@@ -123,7 +221,7 @@ def get_route(src, dest, mode="driving-car", alternatives=True):
         }
         body["alternative_routes"] = {
             "share_factor": 0.6,
-            "target_count": 2,
+            "target_count": 2, # Request 2 alternatives in this batch
             "weight_factor": 1.4
         }
     
@@ -216,7 +314,8 @@ def get_aqi_for_point(lat, lon):
         res = requests.get(f"{pollution_url}lat={lat}&lon={lon}&appid={weather_api_key}")
         data = res.json()
         if "list" in data and len(data["list"]) > 0:
-            return data["list"][0]["main"]["aqi"]
+            raw_index = data["list"][0]["main"]["aqi"]
+            return convert_aqi_to_raw(raw_index)
         return None
     except Exception as e:
         print(f"AQI fetch error for ({lat}, {lon}):", e)
@@ -248,52 +347,132 @@ def calculate_route_aqi(geometry, src_aqi, dest_aqi):
 def calculate_route_score(distance, duration, aqi, optimization="balanced"):
     """
     Calculate route score based on optimization preference
-    Lower score is better
+    Lower score is better.
+    AQI is now 0-500, so we normalize it to roughly match duration/distance scales (0-100 approx)
     """
+    # Normalize AQI to be roughly 0-100 scale for scoring
+    norm_aqi = aqi / 5.0 
+    
     if optimization == "fastest":
         # Prioritize time (70%), distance (20%), AQI (10%)
-        return (duration * 0.7) + (distance * 0.2) + (aqi * 0.1)
+        return (duration * 0.7) + (distance * 0.2) + (norm_aqi * 0.1)
     elif optimization == "cleanest":
         # Prioritize AQI (70%), distance (20%), time (10%)
-        return (aqi * 0.7) + (distance * 0.2) + (duration * 0.1)
+        return (norm_aqi * 0.7) + (distance * 0.2) + (duration * 0.1)
     else:  # balanced
         # Equal weights
-        return (duration * 0.33) + (distance * 0.33) + (aqi * 0.34)
+        return (duration * 0.33) + (distance * 0.33) + (norm_aqi * 0.34)
 
 def get_multiple_routes(src, dest, mode="driving-car", include_traffic=True):
     """
-    Get multiple different route paths using ORS alternative routes API.
-    Returns up to 3 distinct route paths with different characteristics.
-    Falls back to single route if alternatives not available.
+    Get multiple different route paths using ORS alternative routes API AND varying preferences.
+    Simulates A* with different cost functions (Fastest weighting vs Shortest weighting).
     """
-    # Get alternative routes from ORS API
-    print(f"Requesting alternative routes from {src['city']} to {dest['city']}...")
-    alternative_routes = get_route(src, dest, mode, alternatives=True)
+    # Strategy 1: "Fastest" preference (Standard A* with time heuristic)
+    print(f"Strategy 1: Requesting 'Fastest' routes from {src['city']} to {dest['city']}...")
+    fastest_routes = get_route(src, dest, mode, alternatives=True, preference="fastest") or []
     
-    # Fallback: if alternatives failed, get single route
-    if not alternative_routes or len(alternative_routes) == 0:
-        print("Alternative routes not available, fetching single route...")
-        single_route = get_route(src, dest, mode, alternatives=False)
-        if not single_route:
-            print("No routes found")
-            return None
-        alternative_routes = [single_route]
+    # Strategy 2: "Shortest" preference (A* with distance heuristic) - often completely different path
+    print(f"Strategy 2: Requesting 'Shortest' route...")
+    shortest_route = get_route(src, dest, mode, alternatives=False, preference="shortest")
     
-    print(f"Found {len(alternative_routes)} route(s)")
+    raw_routes = []
     
-    # Process each alternative route
-    routes = []
-    route_types = ["fastest", "cleanest", "balanced"]  # Labels for the routes
+    # Add fastest routes (up to 2)
+    if isinstance(fastest_routes, list):
+        raw_routes.extend(fastest_routes[:2])
+    elif isinstance(fastest_routes, dict):
+        raw_routes.append(fastest_routes)
+        
+    # Add shortest route if distinct
+    if shortest_route:
+        # Check uniqueness based on geometry length or distance comparison (simple heuristic)
+        is_distinct = True
+        for r in raw_routes:
+            # If distance is very close (< 100m difference), consider same
+            if abs(r["distance"] - shortest_route["distance"]) < 0.1: 
+                is_distinct = False
+                break
+        
+        if is_distinct:
+            print("Shortest route is distinct, adding to set.")
+            raw_routes.append(shortest_route)
+        else:
+            print("Shortest route is duplicate, skipping.")
+
+    # Strategy 3: Forced Detour (if we still don't have enough distinct routes)
+    # This ensures "Real Data" difference by forcing a path through a different coordinate
+    if len(raw_routes) < 2:
+        print("Strategy 3: Routes are identical. Generating a forced detour to ensure variety...")
+        
+        # Calculate a detour point (midpoint + offset)
+        mid_lat = (src["lat"] + dest["lat"]) / 2
+        mid_lon = (src["lon"] + dest["lon"]) / 2
+        
+        # Offset by ~20km (approx 0.2 deg) to force a different path
+        # Try two different offsets to find a valid route
+        offsets = [(0.15, 0.15), (-0.15, -0.15), (0.15, -0.15)]
+        
+        for lat_offset, lon_offset in offsets:
+            detour_point = {
+                "lat": mid_lat + lat_offset, 
+                "lon": mid_lon + lon_offset
+            }
+            
+            # Construct body manually for waypoint request
+            headers = {"Authorization": ors_api_key, "Content-Type": "application/json"}
+            body = {
+                "coordinates": [
+                    [src["lon"], src["lat"]],
+                    [detour_point["lon"], detour_point["lat"]],
+                    [dest["lon"], dest["lat"]]
+                ],
+                "preference": "fastest" # Use fastest to get good roads even on detour
+            }
+            
+            try:
+                res = requests.post(ors_url + mode + "/geojson", json=body, headers=headers)
+                data = res.json()
+                
+                if "features" in data and len(data["features"]) > 0:
+                    summary = data["features"][0]["properties"]["summary"]
+                    geometry = data["features"][0]["geometry"]["coordinates"]
+                    
+                    detour_route = {
+                        "distance": round(summary["distance"] / 1000, 2),
+                        "duration": round(summary["duration"] / 60, 1),
+                        "geometry": geometry
+                    }
+                    
+                    # Verify it's not absurdly long (e.g. > 2x original) to be a valid alternative
+                    base_dist = raw_routes[0]["distance"]
+                    if detour_route["distance"] < base_dist * 2.0:
+                        print(f"Detour route found via offset ({lat_offset}, {lon_offset})")
+                        raw_routes.append(detour_route)
+                        break 
+            except Exception as e:
+                print(f"Detour generation failed: {e}")
+                continue
+
+    # Fallback if no routes found
+    if not raw_routes:
+        print("No routes found from any strategy.")
+        return None
     
-    for idx, route_data in enumerate(alternative_routes[:3]):  # Max 3 routes
+    print(f"Total distinct routes found: {len(raw_routes)}")
+    
+    # Process routes
+    processed_routes = []
+    
+    for idx, route_data in enumerate(raw_routes[:3]):  # Limit to 3 max
         # Calculate comprehensive AQI for this route
         route_aqi = calculate_route_aqi(route_data["geometry"], src["aqi"], dest["aqi"])
         
-        # Get traffic data for this route (if enabled)
+        # Get traffic data for this route (only for first few to save API calls)
         traffic_data = None
         traffic_adjusted_duration = route_data["duration"]
         
-        if include_traffic and tomtom_api_key and idx == 0:  # Only get traffic for first route to save API calls
+        if include_traffic and tomtom_api_key and idx < 2: 
             print(f"Fetching traffic data for route {idx + 1}...")
             traffic_data = get_traffic_data(route_data["geometry"])
             if traffic_data and traffic_data["status"] != "unknown":
@@ -301,89 +480,74 @@ def get_multiple_routes(src, dest, mode="driving-car", include_traffic=True):
                     route_data["duration"], 
                     traffic_data
                 )
-                print(f"Traffic: {traffic_data['status']}, Delay: {traffic_data['delay_minutes']} min")
         
-        # Determine route type based on characteristics
-        route_type = route_types[min(idx, len(route_types) - 1)]
-        
+        # Initial type assignment (refined later)
+        if idx == 0:
+            initial_type = "fastest"
+        elif idx == len(raw_routes) - 1:
+            initial_type = "balanced" 
+        else:
+            initial_type = "balanced"
+
         route = {
             "name": f"Route {idx + 1} from {src['city']} to {dest['city']}",
-            "type": route_type,
+            "type": initial_type,
             "distance": route_data["distance"],
             "duration": route_data["duration"],
             "traffic_adjusted_duration": traffic_adjusted_duration if traffic_data else None,
             "aqi": route_aqi,
             "geometry": route_data["geometry"],
             "traffic": traffic_data,
-            "score": calculate_route_score(
-                route_data["distance"], 
-                traffic_adjusted_duration, 
-                route_aqi, 
-                route_type
-            )
+            "score": 0 # Calculated below
         }
-        routes.append(route)
+        processed_routes.append(route)
     
-    # If we got less than 3 routes, pad with the first route scored differently
-    while len(routes) < 3:
-        base_route = routes[0]
-        idx = len(routes)
-        route_type = route_types[idx]
+    # Sort/Pad logic - REMOVED PADDING to strictly strictly follow "real data" request
+    # If we only have 1 route after all strategies, we just show 1. 2 lines with same data is bad UX.
+    
+    # Re-calculate indices based on actual data
+    if processed_routes:
+        fastest_idx = min(range(len(processed_routes)), key=lambda i: processed_routes[i]["traffic_adjusted_duration"] or processed_routes[i]["duration"])
+        cleanest_idx = min(range(len(processed_routes)), key=lambda i: processed_routes[i]["aqi"])
         
-        padded_route = {
-            "name": f"Route {idx + 1} from {src['city']} to {dest['city']}",
-            "type": route_type,
-            "distance": base_route["distance"],
-            "duration": base_route["duration"],
-            "traffic_adjusted_duration": base_route["traffic_adjusted_duration"],
-            "aqi": base_route["aqi"],
-            "geometry": base_route["geometry"],
-            "traffic": base_route["traffic"],
-            "score": calculate_route_score(
-                base_route["distance"],
-                base_route["duration"],
-                base_route["aqi"],
-                route_type
-            )
-        }
-        routes.append(padded_route)
-    
-    # Sort routes by their characteristics if we have multiple distinct routes
-    if len(alternative_routes) > 1:
-        # Find actual fastest (shortest duration)
-        fastest_idx = min(range(len(routes)), key=lambda i: routes[i]["duration"])
-        # Find actual cleanest (lowest AQI)
-        cleanest_idx = min(range(len(routes)), key=lambda i: routes[i]["aqi"])
+        # Reset types
+        for r in processed_routes: r["type"] = "balanced"
         
-        # Reassign types based on actual characteristics
-        routes[fastest_idx]["type"] = "fastest"
-        routes[cleanest_idx]["type"] = "cleanest"
-        # The remaining one is balanced
-        for idx in range(len(routes)):
-            if idx != fastest_idx and idx != cleanest_idx:
-                routes[idx]["type"] = "balanced"
-                break
-    
-    # Determine recommended index
-    cleanest_idx = min(range(len(routes)), key=lambda i: routes[i]["aqi"])
+        processed_routes[fastest_idx]["type"] = "fastest"
+        processed_routes[cleanest_idx]["type"] = "cleanest"
+        
+        # If same route is both, usually it's just 'fastest' or 'recommended'. 
+        if fastest_idx == cleanest_idx:
+             processed_routes[fastest_idx]["type"] = "fastest"
+
+    # Calculate final scores
+    for route in processed_routes:
+        route["score"] = calculate_route_score(
+            route["distance"], 
+            route["traffic_adjusted_duration"] if route.get("traffic_adjusted_duration") else route["duration"], 
+            route["aqi"], 
+            route["type"]
+        )
+
+    # Determine recommended
+    recommended_idx = 0
+    if processed_routes:
+        cleanest_idx = min(range(len(processed_routes)), key=lambda i: processed_routes[i]["aqi"])
+        recommended_idx = cleanest_idx # Default to clean choice
     
     # Apply ML scoring if enabled
-    if ML_ENABLED:
+    if ML_ENABLED and processed_routes:
         try:
             print("Applying ML scoring...")
-            scored_routes, ml_recommended_idx = recommender.get_route_scores(routes)
+            scored_routes, ml_recommended_idx = recommender.get_route_scores(processed_routes)
             recommended_idx = ml_recommended_idx
-            routes = scored_routes
-            print(f"ML recommended route: {routes[recommended_idx]['type']} (confidence: {routes[recommended_idx].get('ml_confidence', 0):.2%})")
+            processed_routes = scored_routes
         except Exception as e:
             print(f"ML scoring error: {e}")
-            recommended_idx = cleanest_idx  # Fallback to cleanest
-    else:
-        # Recommend cleanest route by default
-        recommended_idx = cleanest_idx
+            recommended_idx = cleanest_idx
     
     return {
-        "routes": routes,
+        "routes": processed_routes,
         "recommended": recommended_idx
     }
 
@@ -554,6 +718,31 @@ def api_get_weather(city):
         return jsonify({"error": "City not found or data unavailable"}), 404
     return jsonify(weather_data)
 
+@app.route("/api/forecast/<city>", methods=["GET"])
+def api_get_forecast(city):
+    """Get 5-day weather and AQI forecast for a specific city"""
+    city_info = find_city(city)
+    if not city_info:
+        return jsonify({"error": "City not found"}), 404
+    
+    lat, lon = city_info["lat"], city_info["lon"]
+    
+    # Get forecasts
+    weather_list = get_weather_forecast(lat, lon)
+    aqi_list = get_aqi_forecast(lat, lon)
+    
+    if not weather_list:
+        return jsonify({"error": "Forecast data unavailable"}), 500
+        
+    # Process and combine
+    forecast_data = process_forecast_data(weather_list, aqi_list)
+    
+    return jsonify({
+        "city": city_info["name"],
+        "country": city_info["country"],
+        "forecast": forecast_data
+    })
+
 @app.route("/api/route", methods=["POST"])
 def api_get_route():
     """Get multiple route options between two cities"""
@@ -614,7 +803,9 @@ def api_get_route():
             "geometry": route["geometry"],
             "map_file": map_file,
             "distance_geo": dist_geo,
-            "temperature_difference": diff_temp
+            "temperature_difference": diff_temp,
+            "traffic": route.get("traffic"),
+            "traffic_adjusted_duration": route.get("traffic_adjusted_duration")
         }
         enhanced_routes.append(enhanced_route)
     
@@ -940,5 +1131,168 @@ def api_login():
         print(f"Login error: {e}")  # Debug log
         return jsonify({"error": "Internal server error"}), 500
 
-if __name__ == "__main__":
-    app.run(debug=True)
+
+# State Capitals for AQI estimation
+STATE_CAPITALS = {
+    "Maharashtra": {"lat": 19.0760, "lon": 72.8777, "capital": "Mumbai"},
+    "Delhi": {"lat": 28.6139, "lon": 77.2090, "capital": "New Delhi"},
+    "Karnataka": {"lat": 12.9716, "lon": 77.5946, "capital": "Bengaluru"},
+    "Tamil Nadu": {"lat": 13.0827, "lon": 80.2707, "capital": "Chennai"},
+    "West Bengal": {"lat": 22.5726, "lon": 88.3639, "capital": "Kolkata"},
+    "Telangana": {"lat": 17.3850, "lon": 78.4867, "capital": "Hyderabad"},
+    "Gujarat": {"lat": 23.0225, "lon": 72.5714, "capital": "Gandhinagar"},
+    "Rajasthan": {"lat": 26.9124, "lon": 75.7873, "capital": "Jaipur"},
+    "Uttar Pradesh": {"lat": 26.8467, "lon": 80.9462, "capital": "Lucknow"},
+    "Punjab": {"lat": 30.7333, "lon": 76.7794, "capital": "Chandigarh"},
+    "Kerala": {"lat": 8.5241, "lon": 76.9366, "capital": "Thiruvananthapuram"},
+    "Bihar": {"lat": 25.5941, "lon": 85.1376, "capital": "Patna"},
+    "Madhya Pradesh": {"lat": 23.2599, "lon": 77.4126, "capital": "Bhopal"},
+    "Odisha": {"lat": 20.2961, "lon": 85.8245, "capital": "Bhubaneswar"},
+    "Orissa": {"lat": 20.2961, "lon": 85.8245, "capital": "Bhubaneswar"},
+    "Assam": {"lat": 26.1445, "lon": 91.7362, "capital": "Dispur"},
+    "Andhra Pradesh": {"lat": 15.9129, "lon": 79.7400, "capital": "Amaravati"},
+    "Haryana": {"lat": 30.7333, "lon": 76.7794, "capital": "Chandigarh"},
+    "Himachal Pradesh": {"lat": 31.1048, "lon": 77.1734, "capital": "Shimla"},
+    "Uttarakhand": {"lat": 30.3165, "lon": 78.0322, "capital": "Dehradun"},
+    "Uttaranchal": {"lat": 30.3165, "lon": 78.0322, "capital": "Dehradun"},
+    "Chhattisgarh": {"lat": 21.2514, "lon": 81.6296, "capital": "Raipur"},
+    "Jharkhand": {"lat": 23.3441, "lon": 85.3096, "capital": "Ranchi"},
+    "Goa": {"lat": 15.4909, "lon": 73.8278, "capital": "Panaji"},
+    "Sikkim": {"lat": 27.3314, "lon": 88.6138, "capital": "Gangtok"},
+    "Arunachal Pradesh": {"lat": 27.0844, "lon": 93.6053, "capital": "Itanagar"},
+    "Nagaland": {"lat": 25.6751, "lon": 94.1086, "capital": "Kohima"},
+    "Manipur": {"lat": 24.8170, "lon": 93.9368, "capital": "Imphal"},
+    "Mizoram": {"lat": 23.7271, "lon": 92.7176, "capital": "Aizawl"},
+    "Tripura": {"lat": 23.8315, "lon": 91.2868, "capital": "Agartala"},
+    "Meghalaya": {"lat": 25.5788, "lon": 91.8933, "capital": "Shillong"},
+    "Jammu and Kashmir": {"lat": 34.0837, "lon": 74.7973, "capital": "Srinagar"},
+    "Ladakh": {"lat": 34.1526, "lon": 77.5770, "capital": "Leh"},
+    "Andaman and Nicobar Islands": {"lat": 11.6234, "lon": 92.7265, "capital": "Port Blair"},
+    "Andaman and Nicobar": {"lat": 11.6234, "lon": 92.7265, "capital": "Port Blair"},
+    "Puducherry": {"lat": 11.9416, "lon": 79.8083, "capital": "Puducherry"},
+    "Dadra and Nagar Haveli and Daman and Diu": {"lat": 20.4283, "lon": 72.8397, "capital": "Daman"},
+    "Dadra and Nagar Haveli": {"lat": 20.2666, "lon": 73.0169, "capital": "Silvassa"},
+    "Daman and Diu": {"lat": 20.4283, "lon": 72.8397, "capital": "Daman"},
+    "Lakshadweep": {"lat": 10.5667, "lon": 72.6417, "capital": "Kavaratti"}
+}
+
+
+# Major Cities for City-level AQI visualization
+MAJOR_CITIES = {
+    # Metros
+    "Delhi": {"lat": 28.6139, "lon": 77.2090},
+    "Mumbai": {"lat": 19.0760, "lon": 72.8777},
+    "Bengaluru": {"lat": 12.9716, "lon": 77.5946},
+    "Chennai": {"lat": 13.0827, "lon": 80.2707},
+    "Kolkata": {"lat": 22.5726, "lon": 88.3639},
+    "Hyderabad": {"lat": 17.3850, "lon": 78.4867},
+    "Ahmedabad": {"lat": 23.0225, "lon": 72.5714},
+    "Pune": {"lat": 18.5204, "lon": 73.8567},
+    
+    # North
+    "Lucknow": {"lat": 26.8467, "lon": 80.9462},
+    "Kanpur": {"lat": 26.4499, "lon": 80.3319},
+    "Jaipur": {"lat": 26.9124, "lon": 75.7873},
+    "Chandigarh": {"lat": 30.7333, "lon": 76.7794},
+    "Srinagar": {"lat": 34.0837, "lon": 74.7973},
+    
+    # South
+    "Thiruvananthapuram": {"lat": 8.5241, "lon": 76.9366},
+    "Kochi": {"lat": 9.9312, "lon": 76.2673},
+    "Visakhapatnam": {"lat": 17.6868, "lon": 83.2185},
+    
+    # East
+    "Bhubaneswar": {"lat": 20.2961, "lon": 85.8245},
+    "Patna": {"lat": 25.5941, "lon": 85.1376},
+    "Guwahati": {"lat": 26.1158, "lon": 91.7086},
+    
+    # West/Central
+    "Indore": {"lat": 22.7196, "lon": 75.8577},
+    "Bhopal": {"lat": 23.2599, "lon": 77.4126},
+    "Nagpur": {"lat": 21.1458, "lon": 79.0882},
+}
+
+def get_aqi_color_status(aqi_val):
+    if aqi_val <= 50:
+        return "Good", "#22c55e" # Green
+    elif aqi_val <= 100:
+        return "Moderate", "#eab308" # Yellow
+    elif aqi_val <= 200:
+        return "Poor", "#f97316" # Orange
+    elif aqi_val <= 300:
+        return "Unhealthy", "#ef4444" # Red
+    elif aqi_val <= 400:
+        return "Severe", "#a855f7" # Purple
+    else:
+        return "Hazardous", "#7f1d1d" # Maroon
+
+@app.route('/api/states/aqi', methods=['GET'])
+def get_states_aqi():
+    states_data = []
+    
+    for state, info in STATE_CAPITALS.items():
+        # Fetch real AQI for the capital city
+        aqi_url = f"http://api.openweathermap.org/data/2.5/air_pollution?lat={info['lat']}&lon={info['lon']}&appid={weather_api_key}"
+        try:
+            res = requests.get(aqi_url, timeout=5).json()
+            if "list" in res and len(res["list"]) > 0:
+                # Convert raw AQI (1-5) to US AQI approx
+                raw_aqi = res["list"][0]["main"]["aqi"]
+                aqi_val = convert_aqi_to_raw(raw_aqi)
+                
+                # Get status and color
+                status, color = get_aqi_color_status(aqi_val)
+
+                states_data.append({
+                    "state": state,
+                    "aqi": aqi_val,
+                    "status": status,
+                    "color": color
+                })
+        except Exception as e:
+            print(f"Error fetching AQI for {state}: {e}")
+            # Skip this state if data fetch fails
+            continue
+            
+    return jsonify({"success": True, "states": states_data})
+
+@app.route('/api/cities/aqi', methods=['GET'])
+def get_cities_aqi():
+    cities_data = []
+    
+    for city_name, info in MAJOR_CITIES.items():
+        # Fetch real AQI
+        aqi_url = f"http://api.openweathermap.org/data/2.5/air_pollution?lat={info['lat']}&lon={info['lon']}&appid={weather_api_key}"
+        try:
+            res = requests.get(aqi_url, timeout=3).json() # Reduced timeout for faster list interaction
+            if "list" in res and len(res["list"]) > 0:
+                raw_aqi = res["list"][0]["main"]["aqi"]
+                aqi_val = convert_aqi_to_raw(raw_aqi)
+                components = res["list"][0]["components"]
+                
+                # Identify main pollutant (simple heuristic: max value relative to its standard)
+                # This is simplified; normally you'd check against standards. 
+                # We'll just pick the "max" component for display purposes or default to PM2.5
+                main_pollutant = "PM2.5"
+                if components:
+                     # Find key with max value
+                    main_pollutant = max(components, key=components.get).upper()
+
+                status, color = get_aqi_color_status(aqi_val)
+
+                cities_data.append({
+                    "name": city_name,
+                    "lat": info["lat"],
+                    "lon": info["lon"],
+                    "aqi": aqi_val,
+                    "status": status,
+                    "color": color,
+                    "pollutant": main_pollutant
+                })
+        except Exception as e:
+            print(f"Error fetching AQI for {city_name}: {e}")
+            
+    return jsonify({"success": True, "cities": cities_data})
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)

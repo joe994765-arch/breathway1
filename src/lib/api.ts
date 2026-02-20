@@ -80,6 +80,23 @@ export interface CityInfo {
     country: string;
 }
 
+export interface ForecastData {
+    date: string;
+    day_name: string;
+    min_temp: number;
+    max_temp: number;
+    avg_temp: number;
+    wind_speed: number;
+    condition: string;
+    aqi: number;
+}
+
+export interface ForecastResponse {
+    city: string;
+    country: string;
+    forecast: ForecastData[];
+}
+
 class ApiService {
     private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
         const url = `${API_BASE_URL}${endpoint}`;
@@ -121,6 +138,10 @@ class ApiService {
 
     async getHistory(userEmail: string): Promise<HistoryResponse> {
         return this.request<HistoryResponse>(`/history/${encodeURIComponent(userEmail)}`);
+    }
+
+    async getForecast(city: string): Promise<ForecastResponse> {
+        return this.request<ForecastResponse>(`/forecast/${encodeURIComponent(city)}`);
     }
 }
 

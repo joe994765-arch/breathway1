@@ -26,6 +26,8 @@ def test_step_by_step():
         
         if response.status_code == 201:
             print("   ✅ Signup successful")
+        elif response.status_code == 409:
+            print("   ⚠️ User already exists, proceeding to login...")
         else:
             print("   ❌ Signup failed")
             return

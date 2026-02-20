@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, Navigation2, Wind, Thermometer, MapPin, Calendar, Download } from "lucide-react";
-import { apiService, HistoryResponse } from "@/lib/api";
+import { apiService, HistoryResponse, RouteInfo, RouteResponse } from "@/lib/api";
 
 interface RouteHistoryProps {
     userEmail: string;
@@ -12,6 +13,7 @@ interface RouteHistoryProps {
 const RouteHistory = ({ userEmail }: RouteHistoryProps) => {
     const [history, setHistory] = useState<HistoryResponse | null>(null);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -29,6 +31,47 @@ const RouteHistory = ({ userEmail }: RouteHistoryProps) => {
             fetchHistory();
         }
     }, [userEmail]);
+
+    const handleRouteClick = (historyItem: any) => {
+        // Map history item to RouteInfo structure
+        // Note: History items from DB might need some adjustment to match RouteInfo exactly if fields are missing
+        // Based on app.py, the structure seems largely compatible but let's ensure safety
+
+        try {
+            const routeInfo: RouteInfo = {
+                name: historyItem.name || `Route to ${historyItem.destination.city}`,
+                type: 'balanced', // Default fallback
+                distance: historyItem.route.distance,
+                duration: historyItem.route.duration,
+                aqi: historyItem.averages.aqi,
+                score: historyItem.score || 0,
+                source: historyItem.source,
+                destination: historyItem.destination,
+                averages: historyItem.averages,
+                geometry: historyItem.route.geometry,
+                map_file: historyItem.map_file,
+                distance_geo: historyItem.distance_geo,
+                temperature_difference: historyItem.temperature_difference,
+                traffic: historyItem.traffic || null,
+                // Add any other required fields for RouteInfo with defaults if missing
+                traffic_adjusted_duration: historyItem.traffic_adjusted_duration || null,
+                ml_preference: historyItem.ml_preference,
+                ml_confidence: historyItem.ml_confidence,
+                ml_probabilities: historyItem.ml_probabilities
+            };
+
+            const response: RouteResponse = {
+                success: true,
+                routes: [routeInfo],
+                recommended: 0,
+                mode: historyItem.mode || 'driving-car'
+            };
+
+            navigate("/dashboard", { state: { routeData: response } });
+        } catch (error) {
+            console.error("Error navigating to route:", error);
+        }
+    };
 
     if (loading) {
         return (
@@ -99,7 +142,11 @@ const RouteHistory = ({ userEmail }: RouteHistoryProps) => {
 
             <div className="space-y-4 max-h-96 overflow-y-auto">
                 {history.routes.map((route, index) => (
-                    <div key={route._id || index} className="p-4 border rounded-lg hover:bg-primary/5 transition-colors">
+                    <div
+                        key={route._id || index}
+                        className="p-4 border rounded-lg hover:bg-primary/5 transition-colors cursor-pointer"
+                        onClick={() => handleRouteClick(route)}
+                    >
                         <div className="flex items-start justify-between mb-2">
                             <div>
                                 <h4 className="font-medium text-sm">

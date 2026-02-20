@@ -30,13 +30,13 @@ const About = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      
+
       <main className="flex-1 container py-12">
         <div className="max-w-4xl mx-auto space-y-12 animate-fade-in">
           {/* Hero Section */}
           <div className="text-center space-y-4">
             <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-              About Pollution Aware Route Planner
+              About Breathway
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Empowering healthier journeys through intelligent, pollution-aware navigation
@@ -47,10 +47,10 @@ const About = () => {
           <Card className="p-8 glass-card shadow-elevated">
             <h2 className="text-2xl font-bold mb-4">Our Mission</h2>
             <p className="text-muted-foreground leading-relaxed">
-              In today's world, air pollution poses a significant health risk, especially in urban areas. 
-              Our mission is to help people make informed decisions about their travel routes by providing 
-              real-time air quality data and suggesting the healthiest paths between destinations. We believe 
-              that everyone deserves to breathe cleaner air, and small changes in our daily routes can make 
+              In today's world, air pollution poses a significant health risk, especially in urban areas.
+              Our mission is to help people make informed decisions about their travel routes by providing
+              real-time air quality data and suggesting the healthiest paths between destinations. We believe
+              that everyone deserves to breathe cleaner air, and small changes in our daily routes can make
               a big difference to our health.
             </p>
           </Card>
@@ -75,6 +75,48 @@ const About = () => {
                   </div>
                 </Card>
               ))}
+            </div>
+          </div>
+
+          {/* Combating Pollution Section */}
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-center">Combating Pollution Together</h2>
+            <div className="grid md:grid-cols-3 gap-6">
+              <Card className="p-6 glass-card shadow-soft hover:shadow-elevated transition-all">
+                <div className="flex flex-col items-center text-center gap-4">
+                  <div className="p-3 rounded-full bg-green-100">
+                    <Leaf className="h-8 w-8 text-green-600" />
+                  </div>
+                  <h3 className="font-semibold text-lg">Switch to EV</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Electric Vehicles produce zero tailpipe emissions. Switching to an EV significantly reduces local air pollution and your carbon footprint.
+                  </p>
+                </div>
+              </Card>
+
+              <Card className="p-6 glass-card shadow-soft hover:shadow-elevated transition-all">
+                <div className="flex flex-col items-center text-center gap-4">
+                  <div className="p-3 rounded-full bg-orange-100">
+                    <Shield className="h-8 w-8 text-orange-600" />
+                  </div>
+                  <h3 className="font-semibold text-lg">Emergency Measures</h3>
+                  <p className="text-sm text-muted-foreground">
+                    On high AQI days (150+), wear N95 masks outdoors, use indoor air purifiers, and avoid strenuous outdoor exercise to protect your lungs.
+                  </p>
+                </div>
+              </Card>
+
+              <Card className="p-6 glass-card shadow-soft hover:shadow-elevated transition-all">
+                <div className="flex flex-col items-center text-center gap-4">
+                  <div className="p-3 rounded-full bg-blue-100">
+                    <Zap className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <h3 className="font-semibold text-lg">Sustainable Habits</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Carpool, use public transport, or cycle for short distances. Reducing the number of vehicles on the road is the fastest way to cleaner air.
+                  </p>
+                </div>
+              </Card>
             </div>
           </div>
 
@@ -105,34 +147,7 @@ const About = () => {
             </div>
           </Card>
 
-          {/* Developer Info */}
-          <Card className="p-8 glass-card shadow-soft gradient-air">
-            <div className="text-center space-y-4">
-              <h2 className="text-2xl font-bold">Developed by Hemant</h2>
-              <p className="text-muted-foreground">
-                Built with passion for creating healthier, more sustainable urban environments
-              </p>
-              <div className="flex items-center justify-center gap-4 pt-4">
-                <a
-                  href="https://linkedin.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:text-primary/80 transition-colors font-medium"
-                >
-                  Connect on LinkedIn
-                </a>
-                <span className="text-muted-foreground">•</span>
-                <a
-                  href="https://github.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:text-primary/80 transition-colors font-medium"
-                >
-                  View on GitHub
-                </a>
-              </div>
-            </div>
-          </Card>
+
         </div>
       </main>
 

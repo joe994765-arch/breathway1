@@ -11,11 +11,19 @@ interface RouteInputPanelProps {
   onSearch: (source: string, destination: string) => void;
   onRouteData?: (data: RouteResponse) => void;
   userEmail?: string;
+  initialSource?: string;
+  initialDestination?: string;
 }
 
-const RouteInputPanel = ({ onSearch, onRouteData, userEmail }: RouteInputPanelProps) => {
-  const [source, setSource] = useState("");
-  const [destination, setDestination] = useState("");
+const RouteInputPanel = ({
+  onSearch,
+  onRouteData,
+  userEmail,
+  initialSource = "",
+  initialDestination = ""
+}: RouteInputPanelProps) => {
+  const [source, setSource] = useState(initialSource);
+  const [destination, setDestination] = useState(initialDestination);
   const [mode, setMode] = useState<"driving-car" | "cycling-regular" | "foot-walking">("driving-car");
   const [isLoading, setIsLoading] = useState(false);
 

@@ -11,7 +11,8 @@ import {
     Thermometer,
     MapPin,
     Calendar,
-    Activity
+    Activity,
+    Clock
 } from "lucide-react";
 import { apiService, HistoryResponse } from "@/lib/api";
 
@@ -31,6 +32,7 @@ interface AnalyticsData {
     pollutionTrend: 'improving' | 'worsening' | 'stable';
     highPollutionDays: number;
     recommendations: string[];
+    citiesVisited: number;
 }
 
 const AnalyticsDashboard = ({ userEmail }: AnalyticsDashboardProps) => {
@@ -51,6 +53,14 @@ const AnalyticsDashboard = ({ userEmail }: AnalyticsDashboardProps) => {
 
                     const totalDistance = routes.reduce((sum, route) => sum + route.route.distance, 0);
                     const totalTime = routes.reduce((sum, route) => sum + route.route.duration, 0);
+
+                    // Calculate Cities Visited
+                    const cities = new Set<string>();
+                    routes.forEach(route => {
+                        if (route.source?.city) cities.add(route.source.city);
+                        if (route.destination?.city) cities.add(route.destination.city);
+                    });
+                    const citiesVisited = cities.size;
 
                     // Calculate trend (compare first half vs second half)
                     const midPoint = Math.floor(aqiValues.length / 2);
@@ -87,43 +97,37 @@ const AnalyticsDashboard = ({ userEmail }: AnalyticsDashboardProps) => {
                         avgWindSpeed: Math.round(windValues.reduce((sum, wind) => sum + wind, 0) / windValues.length * 10) / 10,
                         pollutionTrend,
                         highPollutionDays,
-                        recommendations
+                        recommendations,
+                        citiesVisited
                     });
                 } else {
                     // Set default analytics if no routes
-                    setAnalytics({
-                        totalRoutes: 0,
-                        avgAQI: 0,
-                        bestAQI: 0,
-                        worstAQI: 0,
-                        totalDistance: 0,
-                        totalTime: 0,
-                        avgTemperature: 0,
-                        avgWindSpeed: 0,
-                        pollutionTrend: 'stable',
-                        highPollutionDays: 0,
-                        recommendations: []
-                    });
+                    setDefaultAnalytics();
                 }
             } catch (error) {
                 console.error("Failed to fetch analytics:", error);
-                // Set default analytics on error
-                setAnalytics({
-                    totalRoutes: 0,
-                    avgAQI: 0,
-                    bestAQI: 0,
-                    worstAQI: 0,
-                    totalDistance: 0,
-                    totalTime: 0,
-                    avgTemperature: 0,
-                    avgWindSpeed: 0,
-                    pollutionTrend: 'stable',
-                    highPollutionDays: 0,
-                    recommendations: []
-                });
+                // Set default analytics on error (suppress UI error)
+                setDefaultAnalytics();
             } finally {
                 setLoading(false);
             }
+        };
+
+        const setDefaultAnalytics = () => {
+            setAnalytics({
+                totalRoutes: 0,
+                avgAQI: 0,
+                bestAQI: 0,
+                worstAQI: 0,
+                totalDistance: 0,
+                totalTime: 0,
+                avgTemperature: 0,
+                avgWindSpeed: 0,
+                pollutionTrend: 'stable',
+                highPollutionDays: 0,
+                recommendations: [],
+                citiesVisited: 0
+            });
         };
 
         if (userEmail) {
@@ -167,6 +171,7 @@ const AnalyticsDashboard = ({ userEmail }: AnalyticsDashboardProps) => {
     };
 
     const getAQIBadge = (aqi: number) => {
+        if (aqi === 0) return { variant: "outline" as const, label: "No Data", color: "text-muted-foreground" };
         if (aqi <= 50) return { variant: "default" as const, label: "Good", color: "bg-green-100 text-green-800" };
         if (aqi <= 100) return { variant: "secondary" as const, label: "Moderate", color: "bg-yellow-100 text-yellow-800" };
         if (aqi <= 150) return { variant: "destructive" as const, label: "Unhealthy", color: "bg-orange-100 text-orange-800" };
@@ -181,190 +186,196 @@ const AnalyticsDashboard = ({ userEmail }: AnalyticsDashboardProps) => {
         );
     }
 
-    if (!analytics) {
-        return (
-            <Card className="p-6 glass-card shadow-soft">
-                <div className="text-center text-muted-foreground">
-                    <div className="mb-4">No analytics data available</div>
-                    <div className="text-sm">Start planning routes to see your analytics!</div>
-                </div>
-            </Card>
-        );
-    }
+    // Always render dashboard, even with 0 values
+    const data = analytics || {
+        totalRoutes: 0,
+        avgAQI: 0,
+        bestAQI: 0,
+        worstAQI: 0,
+        totalDistance: 0,
+        totalTime: 0,
+        avgTemperature: 0,
+        avgWindSpeed: 0,
+        pollutionTrend: 'stable' as const,
+        highPollutionDays: 0,
+        recommendations: [],
+        citiesVisited: 0
+    };
 
-    const badge = getAQIBadge(analytics.avgAQI);
+    const badge = getAQIBadge(data.avgAQI);
 
-    try {
-        return (
-            <div className="space-y-6">
-                {/* Overview Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="p-4 glass-card shadow-soft">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary/10 rounded-lg">
-                                <MapPin className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                                <div className="text-2xl font-bold">{analytics.totalRoutes}</div>
-                                <div className="text-sm text-muted-foreground">Total Routes</div>
-                            </div>
+    return (
+        <div className="space-y-6">
+            {/* Overview Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <Card className="p-4 glass-card shadow-soft">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <MapPin className="h-5 w-5 text-primary" />
                         </div>
-                    </Card>
-
-                    <Card className="p-4 glass-card shadow-soft">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary/10 rounded-lg">
-                                <Activity className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                                <div className="text-2xl font-bold">{analytics.totalDistance} km</div>
-                                <div className="text-sm text-muted-foreground">Total Distance</div>
-                            </div>
+                        <div>
+                            <div className="text-2xl font-bold">{data.totalRoutes}</div>
+                            <div className="text-sm text-muted-foreground">Total Routes</div>
                         </div>
-                    </Card>
+                    </div>
+                </Card>
 
-                    <Card className="p-4 glass-card shadow-soft">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary/10 rounded-lg">
-                                <Clock className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                                <div className="text-2xl font-bold">{Math.round(analytics.totalTime / 60)}h</div>
-                                <div className="text-sm text-muted-foreground">Total Time</div>
-                            </div>
+                <Card className="p-4 glass-card shadow-soft">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <Activity className="h-5 w-5 text-primary" />
                         </div>
-                    </Card>
-
-                    <Card className="p-4 glass-card shadow-soft">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary/10 rounded-lg">
-                                <Calendar className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                                <div className="text-2xl font-bold">{analytics.highPollutionDays}</div>
-                                <div className="text-sm text-muted-foreground">High Pollution Days</div>
-                            </div>
+                        <div>
+                            <div className="text-2xl font-bold">{data.totalDistance} km</div>
+                            <div className="text-sm text-muted-foreground">Total Distance</div>
                         </div>
-                    </Card>
-                </div>
+                    </div>
+                </Card>
 
-                {/* AQI Analysis */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <Card className="p-6 glass-card shadow-soft">
-                        <h3 className="text-lg font-semibold mb-4">Air Quality Analysis</h3>
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-muted-foreground">Average AQI</span>
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-2xl font-bold ${getAQIColor(analytics.avgAQI)}`}>
-                                        {analytics.avgAQI}
-                                    </span>
-                                    <Badge className={badge.color}>{badge.label}</Badge>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-3 rounded-lg bg-green-50 border border-green-200">
-                                    <div className="text-sm text-green-700 font-medium">Best AQI</div>
-                                    <div className="text-xl font-bold text-green-800">{analytics.bestAQI}</div>
-                                </div>
-
-                                <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-                                    <div className="text-sm text-red-700 font-medium">Worst AQI</div>
-                                    <div className="text-xl font-bold text-red-800">{analytics.worstAQI}</div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground">Pollution Trend:</span>
-                                {analytics.pollutionTrend === 'improving' && (
-                                    <div className="flex items-center gap-1 text-green-600">
-                                        <TrendingDown className="h-4 w-4" />
-                                        <span className="text-sm font-medium">Improving</span>
-                                    </div>
-                                )}
-                                {analytics.pollutionTrend === 'worsening' && (
-                                    <div className="flex items-center gap-1 text-red-600">
-                                        <TrendingUp className="h-4 w-4" />
-                                        <span className="text-sm font-medium">Worsening</span>
-                                    </div>
-                                )}
-                                {analytics.pollutionTrend === 'stable' && (
-                                    <div className="flex items-center gap-1 text-blue-600">
-                                        <Activity className="h-4 w-4" />
-                                        <span className="text-sm font-medium">Stable</span>
-                                    </div>
-                                )}
-                            </div>
+                <Card className="p-4 glass-card shadow-soft">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <Clock className="h-5 w-5 text-primary" />
                         </div>
-                    </Card>
-
-                    <Card className="p-6 glass-card shadow-soft">
-                        <h3 className="text-lg font-semibold mb-4">Environmental Data</h3>
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <Thermometer className="h-4 w-4 text-primary" />
-                                    <span className="text-sm">Avg Temperature</span>
-                                </div>
-                                <span className="font-semibold">{analytics.avgTemperature}°C</span>
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <Wind className="h-4 w-4 text-primary" />
-                                    <span className="text-sm">Avg Wind Speed</span>
-                                </div>
-                                <span className="font-semibold">{analytics.avgWindSpeed} m/s</span>
-                            </div>
+                        <div>
+                            <div className="text-2xl font-bold">{Math.round(data.totalTime / 60)}h</div>
+                            <div className="text-sm text-muted-foreground">Total Time</div>
                         </div>
-                    </Card>
-                </div>
+                    </div>
+                </Card>
 
-                {/* Pollution Precautions */}
-                {analytics.avgAQI > 100 && (
-                    <Alert className="border-orange-200 bg-orange-50">
-                        <AlertTriangle className="h-4 w-4 text-orange-600" />
-                        <AlertDescription className="text-orange-800">
-                            <div className="font-semibold mb-2">High Pollution Alert!</div>
-                            <div className="text-sm">
-                                Your average AQI is {analytics.avgAQI}, which is above the healthy range.
-                                Consider the following precautions:
-                            </div>
-                        </AlertDescription>
-                    </Alert>
-                )}
-
-                {/* Recommendations */}
-                {analytics.recommendations.length > 0 && (
-                    <Card className="p-6 glass-card shadow-soft">
-                        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                            <Shield className="h-5 w-5 text-primary" />
-                            Health Recommendations
-                        </h3>
-                        <div className="space-y-2">
-                            {analytics.recommendations.map((recommendation, index) => (
-                                <div key={index} className="flex items-start gap-2 p-3 rounded-lg bg-primary/5">
-                                    <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
-                                    <span className="text-sm">{recommendation}</span>
-                                </div>
-                            ))}
+                <Card className="p-4 glass-card shadow-soft">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <Calendar className="h-5 w-5 text-primary" />
                         </div>
-                    </Card>
-                )}
+                        <div>
+                            <div className="text-2xl font-bold">{data.highPollutionDays}</div>
+                            <div className="text-sm text-muted-foreground">High Pollution Days</div>
+                        </div>
+                    </div>
+                </Card>
+
+                {/* Cities Visited Card */}
+                <Card className="p-4 glass-card shadow-soft">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <MapPin className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                            <div className="text-2xl font-bold">{data.citiesVisited}</div>
+                            <div className="text-sm text-muted-foreground">Cities Visited</div>
+                        </div>
+                    </div>
+                </Card>
             </div>
-        );
-    } catch (error) {
-        console.error("AnalyticsDashboard error:", error);
-        return (
-            <Card className="p-6 glass-card shadow-soft">
-                <div className="text-center text-muted-foreground">
-                    <div className="mb-4">Error loading analytics</div>
-                    <div className="text-sm">Please try refreshing the page</div>
-                </div>
-            </Card>
-        );
-    }
+
+            {/* AQI Analysis */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="p-6 glass-card shadow-soft">
+                    <h3 className="text-lg font-semibold mb-4">Air Quality Analysis</h3>
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Average AQI</span>
+                            <div className="flex items-center gap-2">
+                                <span className={`text-2xl font-bold ${getAQIColor(data.avgAQI)}`}>
+                                    {data.avgAQI}
+                                </span>
+                                <Badge className={badge.color}>{badge.label}</Badge>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                                <div className="text-sm text-green-700 font-medium">Best AQI</div>
+                                <div className="text-xl font-bold text-green-800">{data.bestAQI}</div>
+                            </div>
+
+                            <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                                <div className="text-sm text-red-700 font-medium">Worst AQI</div>
+                                <div className="text-xl font-bold text-red-800">{data.worstAQI}</div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">Pollution Trend:</span>
+                            {data.pollutionTrend === 'improving' && (
+                                <div className="flex items-center gap-1 text-green-600">
+                                    <TrendingDown className="h-4 w-4" />
+                                    <span className="text-sm font-medium">Improving</span>
+                                </div>
+                            )}
+                            {data.pollutionTrend === 'worsening' && (
+                                <div className="flex items-center gap-1 text-red-600">
+                                    <TrendingUp className="h-4 w-4" />
+                                    <span className="text-sm font-medium">Worsening</span>
+                                </div>
+                            )}
+                            {data.pollutionTrend === 'stable' && (
+                                <div className="flex items-center gap-1 text-blue-600">
+                                    <Activity className="h-4 w-4" />
+                                    <span className="text-sm font-medium">Stable</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </Card>
+
+                <Card className="p-6 glass-card shadow-soft">
+                    <h3 className="text-lg font-semibold mb-4">Environmental Data</h3>
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Thermometer className="h-4 w-4 text-primary" />
+                                <span className="text-sm">Avg Temperature</span>
+                            </div>
+                            <span className="font-semibold">{data.avgTemperature}°C</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Wind className="h-4 w-4 text-primary" />
+                                <span className="text-sm">Avg Wind Speed</span>
+                            </div>
+                            <span className="font-semibold">{data.avgWindSpeed} m/s</span>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+
+            {/* Pollution Precautions */}
+            {data.avgAQI > 100 && (
+                <Alert className="border-orange-200 bg-orange-50">
+                    <AlertTriangle className="h-4 w-4 text-orange-600" />
+                    <AlertDescription className="text-orange-800">
+                        <div className="font-semibold mb-2">High Pollution Alert!</div>
+                        <div className="text-sm">
+                            Your average AQI is {data.avgAQI}, which is above the healthy range.
+                            Consider the following precautions:
+                        </div>
+                    </AlertDescription>
+                </Alert>
+            )}
+
+            {/* Recommendations */}
+            {data.recommendations.length > 0 && (
+                <Card className="p-6 glass-card shadow-soft">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <Shield className="h-5 w-5 text-primary" />
+                        Health Recommendations
+                    </h3>
+                    <div className="space-y-2">
+                        {data.recommendations.map((recommendation, index) => (
+                            <div key={index} className="flex items-start gap-2 p-3 rounded-lg bg-primary/5">
+                                <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
+                                <span className="text-sm">{recommendation}</span>
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+            )}
+        </div>
+    );
 };
 
 export default AnalyticsDashboard;

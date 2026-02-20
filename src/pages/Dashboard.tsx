@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RouteInputPanel from "@/components/RouteInputPanel";
@@ -14,7 +15,16 @@ const Dashboard = () => {
   const [showResults, setShowResults] = useState(false);
   const [routeData, setRouteData] = useState<RouteResponse | null>(null);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0);
-  const [userEmail, setUserEmail] = useState("hemant@example.com"); // This should come from auth context
+  const [userEmail, setUserEmail] = useState(localStorage.getItem("userEmail") || "hemant@example.com");
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.state?.routeData) {
+      setRouteData(location.state.routeData);
+      setShowResults(true);
+      // Optional: clear state if needed, but keeping it allows back/forward to work nicely
+    }
+  }, [location.state]);
 
   const handleSearch = (source: string, destination: string) => {
     toast.success(`Searching routes from ${source} to ${destination}`);
@@ -38,48 +48,46 @@ const Dashboard = () => {
       <Header />
 
       <main className="flex-1 container py-8">
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left Panel */}
-          <div className="lg:col-span-1 space-y-6">
-            <RouteInputPanel onSearch={handleSearch} onRouteData={handleRouteData} userEmail={userEmail} />
-
-            {/* User Profile */}
-            <UserProfile userEmail={userEmail} />
+        {/* Main Layout Area */}
+        {!showResults ? (
+          /* Centered Initial View */
+          <div className="max-w-xl mx-auto py-12 animate-fade-in">
+            <RouteInputPanel
+              onSearch={handleSearch}
+              onRouteData={handleRouteData}
+              userEmail={userEmail}
+            />
           </div>
+        ) : (
+          /* Results View (Side Panel + Map) */
+          <div className="grid lg:grid-cols-3 gap-6 animate-slide-up">
+            {/* Left Panel */}
+            <div className="lg:col-span-1 space-y-6">
+              <RouteInputPanel
+                onSearch={handleSearch}
+                onRouteData={handleRouteData}
+                userEmail={userEmail}
+                initialSource={selectedRoute?.source.city}
+                initialDestination={selectedRoute?.destination.city}
+              />
 
-          {/* Map Area */}
-          <div className="lg:col-span-2">
-            {selectedRoute ? (
-              <MapView className="h-full" routeData={selectedRoute} />
-            ) : (
-              <Card className="h-full min-h-[500px] flex items-center justify-center glass-card shadow-elevated">
-                <div className="text-center space-y-4 p-8">
-                  <div className="w-20 h-20 mx-auto bg-gradient-eco rounded-full flex items-center justify-center">
-                    <MapPin className="h-10 w-10 text-white" />
-                  </div>
-                  <h2 className="text-2xl font-bold">Plan Your Clean Route</h2>
-                  <p className="text-muted-foreground max-w-md">
-                    Enter your source and destination to find the cleanest, fastest, and most balanced routes with real-time AQI and traffic data.
-                  </p>
-                  <div className="flex items-center justify-center gap-6 pt-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">3</div>
-                      <div className="text-xs text-muted-foreground">Route Options</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">🚦</div>
-                      <div className="text-xs text-muted-foreground">Live Traffic</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">🤖</div>
-                      <div className="text-xs text-muted-foreground">AI Powered</div>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            )}
+              {/* User Profile */}
+              <UserProfile userEmail={userEmail} />
+            </div>
+
+            {/* Map Area */}
+            <div className="lg:col-span-2 min-h-[500px]">
+              {routeData && (
+                <MapView
+                  className="h-full rounded-xl shadow-elevated"
+                  routes={routeData.routes}
+                  selectedIndex={selectedRouteIndex}
+                  onSelectRoute={(index) => handleRouteSelect(routeData.routes[index], index)}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Route Comparison Grid */}
         {showResults && routeData && (

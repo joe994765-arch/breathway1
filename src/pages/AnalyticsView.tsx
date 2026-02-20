@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
+import ForecastAnalysis from "@/components/ForecastAnalysis";
+import StateMap from "@/components/StateMap";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Line, Bar } from "react-chartjs-2";
 import { Download, TrendingUp, Wind, MapPin } from "lucide-react";
+import { apiService } from "@/lib/api";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -22,7 +25,7 @@ import {
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
 
 const AnalyticsView = () => {
-  const [userEmail, setUserEmail] = useState("hemant@example.com"); // This should come from auth context
+  const [userEmail, setUserEmail] = useState(localStorage.getItem("userEmail") || "hemant@example.com");
   const lineChartData = {
     labels: ["Jan 1", "Jan 5", "Jan 10", "Jan 15", "Jan 20", "Jan 25"],
     datasets: [
@@ -65,11 +68,33 @@ const AnalyticsView = () => {
     },
   };
 
-  const recentRoutes = [
-    { id: 1, source: "Connaught Place", destination: "Gurugram", aqi: 45, distance: "12.5 km", date: "2025-01-15" },
-    { id: 2, source: "Noida Sector 18", destination: "Delhi Airport", aqi: 78, distance: "18.2 km", date: "2025-01-14" },
-    { id: 3, source: "Dwarka", destination: "Rajouri Garden", aqi: 125, distance: "8.3 km", date: "2025-01-13" },
-  ];
+  const [recentRoutes, setRecentRoutes] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const response = await apiService.getHistory(userEmail);
+        if (response.success && response.routes) {
+          // Map API response to UI format
+          const mappedRoutes = response.routes.map((route: any) => ({
+            id: route._id,
+            source: route.source?.city || "Unknown",
+            destination: route.destination?.city || "Unknown",
+            aqi: route.averages?.aqi || 0,
+            distance: `${route.route?.distance || 0} km`,
+            date: new Date(route.created_at).toLocaleDateString()
+          }));
+          setRecentRoutes(mappedRoutes);
+        }
+      } catch (error) {
+        console.error("Failed to fetch history:", error);
+      }
+    };
+
+    if (userEmail) {
+      fetchHistory();
+    }
+  }, [userEmail]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -83,6 +108,12 @@ const AnalyticsView = () => {
 
         {/* Real Analytics Dashboard */}
         <AnalyticsDashboard userEmail={userEmail} />
+
+        {/* State-wise Map */}
+        <StateMap />
+
+        {/* Forecast Analysis Section */}
+        <ForecastAnalysis defaultCity="New Delhi" />
 
         <div className="grid md:grid-cols-4 gap-4">
           <Card className="p-6 glass-card shadow-elevated">
@@ -155,26 +186,32 @@ const AnalyticsView = () => {
             </Button>
           </div>
           <div className="space-y-3">
-            {recentRoutes.map((route) => (
-              <div
-                key={route.id}
-                className="flex items-center justify-between p-4 rounded-lg bg-card/50 hover:bg-card transition-colors"
-              >
-                <div className="space-y-1">
-                  <p className="font-medium">
-                    {route.source} → {route.destination}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{route.date}</p>
+            {recentRoutes.length > 0 ? (
+              recentRoutes.map((route) => (
+                <div
+                  key={route.id}
+                  className="flex items-center justify-between p-4 rounded-lg bg-card/50 hover:bg-card transition-colors"
+                >
+                  <div className="space-y-1">
+                    <p className="font-medium">
+                      {route.source} → {route.destination}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{route.date}</p>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className={`font-semibold ${route.aqi <= 50 ? "text-green-600" : route.aqi <= 100 ? "text-yellow-600" : "text-red-600"
+                      }`}>
+                      AQI: {route.aqi}
+                    </span>
+                    <span className="text-muted-foreground">{route.distance}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4 text-sm">
-                  <span className={`font-semibold ${route.aqi <= 50 ? "text-green-600" : route.aqi <= 100 ? "text-yellow-600" : "text-red-600"
-                    }`}>
-                    AQI: {route.aqi}
-                  </span>
-                  <span className="text-muted-foreground">{route.distance}</span>
-                </div>
+              ))
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                No recent routes found.
               </div>
-            ))}
+            )}
           </div>
         </Card>
       </main>

@@ -17,7 +17,7 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -30,6 +30,10 @@ const Login = () => {
         throw new Error(msg.message || "Login failed");
       }
       const user = await res.json();
+      localStorage.setItem("userEmail", loginData.email.trim().toLowerCase());
+      if (user.user?.name) {
+        localStorage.setItem("userName", user.user.name);
+      }
       toast.success(`Welcome back, ${user.user?.name || "user"}!`);
       navigate("/dashboard");
     } catch (err: any) {
@@ -44,7 +48,7 @@ const Login = () => {
       return;
     }
     try {
-      const res = await fetch("http://localhost:5000/api/auth/signup", {
+      const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -58,6 +62,8 @@ const Login = () => {
         throw new Error(msg.message || "Signup failed");
       }
       const user = await res.json();
+      localStorage.setItem("userEmail", signupData.email.trim().toLowerCase());
+      localStorage.setItem("userName", signupData.name.trim());
       toast.success(`Account created. Welcome, ${user.user?.name || "user"}!`);
       navigate("/dashboard");
     } catch (err: any) {
@@ -78,9 +84,8 @@ const Login = () => {
               </div>
             </div>
             <h1 className="text-3xl font-bold bg-gradient-eco bg-clip-text text-primary">
-              Pollution Aware Route Planner
+              Breathway
             </h1>
-            <p className="text-muted-foreground">Plan Smarter. Breathe Cleaner.</p>
           </div>
 
           <Tabs value={isLogin ? "login" : "signup"} onValueChange={(v) => setIsLogin(v === "login")} className="w-full">
@@ -173,7 +178,7 @@ const Login = () => {
           </Tabs>
 
           <footer className="text-center text-xs text-muted-foreground pt-4 border-t">
-            © 2025 Pollution Aware Route Planner by Hemant
+            © 2025 Breathway
           </footer>
         </div>
       </Card>
