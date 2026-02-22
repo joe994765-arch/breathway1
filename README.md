@@ -50,7 +50,7 @@ This project aggregates data from multiple world-class providers:
 -   Node.js 18+
 -   MongoDB (Local or Atlas)
 
-### 1. Backend Setup
+### 1. Backend Setup (Root Directory)
 ```bash
 # Install dependencies
 pip install -r requirements.txt
@@ -60,8 +60,11 @@ pip install -r requirements.txt
 python app.py
 ```
 
-### 2. Frontend Setup
+### 2. Frontend Setup (Frontend Directory)
 ```bash
+# Navigate to frontend folder
+cd frontend
+
 # Install dependencies
 npm install
 
