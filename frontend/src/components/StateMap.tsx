@@ -36,7 +36,7 @@ const StateMap = () => {
                 setGeoJsonData(geoData);
 
                 // Fetch AQI Data from our backend
-                const aqiResponse = await fetch("/api/states/aqi");
+                const aqiResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/states/aqi`);
                 const aqiData = await aqiResponse.json();
                 if (aqiData.success) {
                     console.log("AQI Data loaded:", aqiData.states); // Debug log
