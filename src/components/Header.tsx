@@ -22,7 +22,7 @@ const Header = () => {
       if (!email) return;
 
       try {
-        const response = await fetch(`http://localhost:5000/api/user/${email}`);
+        const response = await fetch(`/api/user/${email}`);
         if (response.ok) {
           const data = await response.json();
           setUserData(data.user);
