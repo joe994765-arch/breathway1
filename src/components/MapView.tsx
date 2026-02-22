@@ -71,8 +71,8 @@ const MapView = ({ className, routes = [], selectedIndex = 0, onSelectRoute }: M
       try {
         const [geoRes, stateRes, cityRes] = await Promise.all([
           fetch("/india_states.geojson"),
-          fetch("/api/states/aqi"),
-          fetch("/api/cities/aqi")
+          fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/states/aqi`),
+          fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/cities/aqi`)
         ]);
 
         if (geoRes.ok) setGeoJsonData(await geoRes.json());
