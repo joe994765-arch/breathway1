@@ -703,20 +703,9 @@ def aqi_color(aqi):
     else: return "purple"
 
 def create_map(src, dest, geometry):
-    m = folium.Map(location=[(src["lat"] + dest["lat"]) / 2, (src["lon"] + dest["lon"]) / 2], zoom_start=6)
-    folium.Marker([src["lat"], src["lon"]],
-                  popup=f"{src['city']}, AQI: {src['aqi']}",
-                  icon=folium.Icon(color=aqi_color(src["aqi"]), icon="home")).add_to(m)
-    folium.Marker([dest["lat"], dest["lon"]],
-                  popup=f"{dest['city']}, AQI: {dest['aqi']}",
-                  icon=folium.Icon(color=aqi_color(dest["aqi"]), icon="flag")).add_to(m)
-    points = [(lat, lon) for lon, lat in geometry]
-    folium.PolyLine(points, color="blue", weight=4, opacity=0.7).add_to(m)
-    os.makedirs("static", exist_ok=True)
-    map_file = f"route_map_{uuid.uuid4().hex}.html"
-    map_path = os.path.join("static", map_file)
-    m.save(map_path)
-    return map_file
+    # Folium map generation is disabled for Vercel deployment as the React 
+    # frontend uses its own Leaflet implementation.
+    return None
 
 # ----------------- ROUTES -----------------
 @app.route("/", methods=["GET", "POST"])
@@ -1340,4 +1329,5 @@ def get_cities_aqi():
     return jsonify({"success": True, "cities": cities_data})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
