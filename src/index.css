@@ -1,0 +1,229 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Eco-friendly design system - green, blue, white palette */
+    --background: 210 30% 98%;
+    --foreground: 158 64% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 158 64% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 158 64% 15%;
+
+    /* Primary: Deep emerald green - eco-friendly */
+    --primary: 158 64% 35%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary: Bright cyan - clean air, tech */
+    --secondary: 189 85% 55%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 210 30% 94%;
+    --muted-foreground: 158 24% 45%;
+
+    /* Accent: Lime green - highlights */
+    --accent: 88 70% 55%;
+    --accent-foreground: 158 64% 15%;
+
+    /* Warning/Polluted: Red-orange */
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Moderate: Amber */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 210 20% 88%;
+    --input: 210 20% 92%;
+    --ring: 158 64% 35%;
+
+    --radius: 0.75rem;
+
+    /* Gradients for eco-tech feel */
+    --gradient-eco: linear-gradient(135deg, hsl(158 64% 35%), hsl(189 85% 55%));
+    --gradient-air: linear-gradient(180deg, hsl(189 85% 55% / 0.1), hsl(158 64% 35% / 0.05));
+    --gradient-clean: linear-gradient(135deg, hsl(88 70% 55%), hsl(158 64% 45%));
+    
+    /* Shadows - soft, elevated */
+    --shadow-soft: 0 4px 20px hsl(158 64% 35% / 0.08);
+    --shadow-elevated: 0 8px 30px hsl(158 64% 35% / 0.12);
+    --shadow-glow: 0 0 30px hsl(88 70% 55% / 0.3);
+
+    /* Glass morphism effect */
+    --glass-bg: hsl(0 0% 100% / 0.7);
+    --glass-border: hsl(0 0% 100% / 0.3);
+  }
+
+  .dark {
+    --background: 158 40% 8%;
+    --foreground: 210 30% 96%;
+
+    --card: 158 35% 12%;
+    --card-foreground: 210 30% 96%;
+
+    --popover: 158 35% 12%;
+    --popover-foreground: 210 30% 96%;
+
+    --primary: 158 64% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 189 85% 50%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 158 30% 18%;
+    --muted-foreground: 210 20% 65%;
+
+    --accent: 88 70% 50%;
+    --accent-foreground: 158 64% 95%;
+
+    --destructive: 0 75% 50%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 158 30% 22%;
+    --input: 158 30% 18%;
+    --ring: 158 64% 45%;
+    
+    --gradient-eco: linear-gradient(135deg, hsl(158 64% 35%), hsl(189 85% 45%));
+    --gradient-air: linear-gradient(180deg, hsl(189 85% 45% / 0.1), hsl(158 64% 35% / 0.05));
+    --gradient-clean: linear-gradient(135deg, hsl(88 70% 45%), hsl(158 64% 40%));
+    
+    --shadow-soft: 0 4px 20px hsl(0 0% 0% / 0.3);
+    --shadow-elevated: 0 8px 30px hsl(0 0% 0% / 0.4);
+    --shadow-glow: 0 0 30px hsl(88 70% 50% / 0.4);
+    
+    --glass-bg: hsl(158 35% 12% / 0.7);
+    --glass-border: hsl(158 30% 25% / 0.3);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    background: linear-gradient(to bottom, hsl(var(--background)), hsl(210 30% 96%));
+    min-height: 100vh;
+  }
+}
+
+@layer utilities {
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+  }
+  
+  .gradient-eco {
+    background: var(--gradient-eco);
+  }
+  
+  .gradient-air {
+    background: var(--gradient-air);
+  }
+  
+  .gradient-clean {
+    background: var(--gradient-clean);
+  }
+  
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+  
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-out;
+  }
+  
+  .animate-slide-up {
+    animation: slide-up 0.6s ease-out;
+  }
+  
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .animate-scale-in {
+    animation: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .stagger-1 { animation-delay: 100ms; }
+  .stagger-2 { animation-delay: 200ms; }
+  .stagger-3 { animation-delay: 300ms; }
+  .stagger-4 { animation-delay: 400ms; }
+  .stagger-5 { animation-delay: 500ms; }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px hsl(88 70% 55% / 0.2);
+  }
+  50% {
+    box-shadow: 0 0 40px hsl(88 70% 55% / 0.5);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
