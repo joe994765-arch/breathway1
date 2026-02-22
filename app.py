@@ -30,7 +30,7 @@ except Exception as e:
     ML_ENABLED = False
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}}) # Explicitly allow /api/ routes from any origin for deployment
+CORS(app, origins=["https://breathway-lime.vercel.app", "http://localhost:5173"]) # Allow Vercel and local dev
 
 # MongoDB connection
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")

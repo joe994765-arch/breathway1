@@ -35,7 +35,7 @@ const UserProfile = ({ userEmail }: UserProfileProps) => {
         const fetchUserData = async () => {
             try {
                 // Fetch user data from MongoDB
-                const response = await fetch(`http://localhost:5000/api/user/${encodeURIComponent(userEmail)}`);
+                const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/user/${encodeURIComponent(userEmail)}`);
                 if (response.ok) {
                     const data = await response.json();
                     setUserData(data.user);

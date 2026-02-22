@@ -95,7 +95,7 @@ const RouteHistory = ({ userEmail }: RouteHistoryProps) => {
 
     const handleDownload = async (format: 'csv' | 'pdf') => {
         try {
-            const response = await fetch(`http://localhost:5000/api/history/${encodeURIComponent(userEmail)}/download/${format}`);
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/history/${encodeURIComponent(userEmail)}/download/${format}`);
             if (response.ok) {
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
