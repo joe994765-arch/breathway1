@@ -20,24 +20,19 @@ load_dotenv()
 # Global ThreadPoolExecutor for background tasks and parallel API calls
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=20)
 
-# Import ML model (will auto-train on first import)
-try:
-    from ml_model import recommender
-    ML_ENABLED = True
-    print("ML model loaded successfully")
-except Exception as e:
-    print(f"ML model not available: {e}")
-    ML_ENABLED = False
+# ML initialization is now lazy-loaded inside get_multiple_routes to save memory on Render
+ML_ENABLED = os.path.exists("route_model.json")
 
 app = Flask(__name__)
 CORS(app, origins=["https://breathway-lime.vercel.app", "http://localhost:5173"]) # Allow Vercel and local dev
 
-# MongoDB connection
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
-client = MongoClient(MONGODB_URI)
-db = client.breathway
-users_collection = db.users
-routes_collection = db.routes
+# MongoDB connection helper for fork-safety
+def get_db():
+    uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
+    client = MongoClient(uri)
+    return client.breathway
+
+# Collections are now accessed via get_db() inside routes
 
 # Simple in-memory user storage (fallback)
 users_db = {}
@@ -584,7 +579,8 @@ def get_multiple_routes(src, dest, mode="driving-car", include_traffic=True):
     # Apply ML scoring if enabled
     if ML_ENABLED and processed_routes:
         try:
-            print("Applying ML scoring...")
+            from ml_model import recommender
+            print("Applying ML scoring (on-demand)...")
             scored_routes, ml_recommended_idx = recommender.get_route_scores(processed_routes)
             recommended_idx = ml_recommended_idx
             processed_routes = scored_routes
@@ -749,103 +745,108 @@ def api_get_forecast(city):
 @app.route("/api/route", methods=["POST"])
 def api_get_route():
     """Get multiple route options between two cities"""
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No JSON data provided"}), 400
-    
-    src_city = data.get("source")
-    dest_city = data.get("destination")
-    mode = data.get("mode", "driving-car")
-    
-    if not src_city or not dest_city:
-        return jsonify({"error": "Both source and destination are required"}), 400
-    
-    # Get weather data for both cities
-    src_data = get_weather(src_city)
-    dest_data = get_weather(dest_city)
-    
-    if not src_data:
-        return jsonify({"error": f"Source city '{src_city}' not found"}), 404
-    if not dest_data:
-        return jsonify({"error": f"Destination city '{dest_city}' not found"}), 404
-    
-    # Calculate multiple routes
-    multi_route_data = get_multiple_routes(src_data, dest_data, mode)
-    if not multi_route_data:
-        return jsonify({"error": "Route calculation failed"}), 500
-    
-    # Calculate additional metrics
-    dist_geo = round(geodesic((src_data["lat"], src_data["lon"]),
-                              (dest_data["lat"], dest_data["lon"])).km, 2)
-    diff_temp = round(dest_data["temp"] - src_data["temp"], 1)
-    
-    # Calculate averages
-    avg_temp = round((src_data["temp"] + dest_data["temp"]) / 2, 1)
-    avg_wind_speed = round((src_data["wind_speed"] + dest_data["wind_speed"]) / 2, 1)
-    
-    # Enhance each route with source/destination data
-    enhanced_routes = []
-    for route in multi_route_data["routes"]:
-        # Create map for this route
-        map_file = create_map(src_data, dest_data, route["geometry"])
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON data provided"}), 400
         
-        enhanced_route = {
-            "name": route["name"],
-            "type": route["type"],
-            "distance": route["distance"],
-            "duration": route["duration"],
-            "aqi": route["aqi"],
-            "score": route["score"],
+        src_city = data.get("source")
+        dest_city = data.get("destination")
+        mode = data.get("mode", "driving-car")
+        
+        if not src_city or not dest_city:
+            return jsonify({"error": "Both source and destination are required"}), 400
+        
+        # Get weather data for both cities
+        src_data = get_weather(src_city)
+        dest_data = get_weather(dest_city)
+        
+        if not src_data:
+            return jsonify({"error": f"Source city '{src_city}' not found"}), 404
+        if not dest_data:
+            return jsonify({"error": f"Destination city '{dest_city}' not found"}), 404
+        
+        # Calculate multiple routes
+        multi_route_data = get_multiple_routes(src_data, dest_data, mode)
+        if not multi_route_data:
+            return jsonify({"error": "Route calculation failed"}), 500
+        
+        # Calculate additional metrics
+        dist_geo = round(geodesic((src_data["lat"], src_data["lon"]),
+                                  (dest_data["lat"], dest_data["lon"])).km, 2)
+        diff_temp = round(dest_data["temp"] - src_data["temp"], 1)
+        
+        # Calculate averages
+        avg_temp = round((src_data["temp"] + dest_data["temp"]) / 2, 1)
+        avg_wind_speed = round((src_data["wind_speed"] + dest_data["wind_speed"]) / 2, 1)
+        
+        # Enhance each route with source/destination data
+        enhanced_routes = []
+        for route in multi_route_data["routes"]:
+            # Create map for this route
+            map_file = create_map(src_data, dest_data, route["geometry"])
+            
+            enhanced_route = {
+                "name": route["name"],
+                "type": route["type"],
+                "distance": route["distance"],
+                "duration": route["duration"],
+                "aqi": route["aqi"],
+                "score": route["score"],
+                "source": src_data,
+                "destination": dest_data,
+                "averages": {
+                    "aqi": route["aqi"],
+                    "temperature": avg_temp,
+                    "wind_speed": avg_wind_speed
+                },
+                "geometry": route["geometry"],
+                "map_file": map_file,
+                "distance_geo": dist_geo,
+                "temperature_difference": diff_temp,
+                "traffic": route.get("traffic"),
+                "traffic_adjusted_duration": route.get("traffic_adjusted_duration")
+            }
+            enhanced_routes.append(enhanced_route)
+        
+        # Prepare route data for storage (store recommended route)
+        recommended_route = enhanced_routes[multi_route_data["recommended"]]
+        route_record = {
+            "user_email": data.get("user_email"),
             "source": src_data,
             "destination": dest_data,
-            "averages": {
-                "aqi": route["aqi"],
-                "temperature": avg_temp,
-                "wind_speed": avg_wind_speed
+            "route": {
+                "distance": recommended_route["distance"],
+                "duration": recommended_route["duration"],
+                "geometry": recommended_route["geometry"]
             },
-            "geometry": route["geometry"],
-            "map_file": map_file,
+            "averages": recommended_route["averages"],
             "distance_geo": dist_geo,
             "temperature_difference": diff_temp,
-            "traffic": route.get("traffic"),
-            "traffic_adjusted_duration": route.get("traffic_adjusted_duration")
+            "map_file": recommended_route["map_file"],
+            "mode": mode,
+            "created_at": datetime.now().isoformat()
         }
-        enhanced_routes.append(enhanced_route)
-    
-    # Prepare route data for storage (store recommended route)
-    recommended_route = enhanced_routes[multi_route_data["recommended"]]
-    route_record = {
-        "user_email": data.get("user_email"),
-        "source": src_data,
-        "destination": dest_data,
-        "route": {
-            "distance": recommended_route["distance"],
-            "duration": recommended_route["duration"],
-            "geometry": recommended_route["geometry"]
-        },
-        "averages": recommended_route["averages"],
-        "distance_geo": dist_geo,
-        "temperature_difference": diff_temp,
-        "map_file": recommended_route["map_file"],
-        "mode": mode,
-        "created_at": datetime.now().isoformat()
-    }
-    
-    # Store route in MongoDB (if user_email provided)
-    if data.get("user_email"):
-        try:
-            routes_collection.insert_one(route_record)
-            print(f"Route stored for user: {data.get('user_email')}")
-        except Exception as e:
-            print(f"Error storing route: {e}")
-    
-    # Return multiple routes
-    return jsonify({
-        "success": True,
-        "routes": enhanced_routes,
-        "recommended": multi_route_data["recommended"],
-        "mode": mode
-    })
+        
+        # Store route in MongoDB (if user_email provided)
+        if data.get("user_email"):
+            try:
+                db = get_db()
+                db.routes.insert_one(route_record)
+                print(f"Route stored for user: {data.get('user_email')}")
+            except Exception as e:
+                print(f"Error storing route: {e}")
+        
+        # Return multiple routes
+        return jsonify({
+            "success": True,
+            "routes": enhanced_routes,
+            "recommended": multi_route_data["recommended"],
+            "mode": mode
+        })
+    except Exception as e:
+        print(f"Route calculation error: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 @app.route("/api/city/<city>", methods=["GET"])
 def api_find_city(city):
@@ -859,8 +860,9 @@ def api_find_city(city):
 def api_get_history(user_email):
     """Get user's route history"""
     try:
+        db = get_db()
         # Get routes for the user, sorted by creation date (newest first)
-        routes = list(routes_collection.find(
+        routes = list(db.routes.find(
             {"user_email": user_email}
         ).sort("created_at", -1).limit(20))  # Limit to last 20 routes
         
@@ -881,7 +883,8 @@ def api_get_history(user_email):
 def api_get_user(user_email):
     """Get user profile data"""
     try:
-        user = users_collection.find_one({"email": user_email})
+        db = get_db()
+        user = db.users.find_one({"email": user_email})
         if not user:
             return jsonify({"error": "User not found"}), 404
         
@@ -909,8 +912,9 @@ def api_get_user(user_email):
 def api_download_history(user_email, format):
     """Download user's route history in CSV or PDF format"""
     try:
+        db = get_db()
         # Get all routes for the user
-        routes = list(routes_collection.find(
+        routes = list(db.routes.find(
             {"user_email": user_email}
         ).sort("created_at", -1))
         
@@ -1024,26 +1028,21 @@ def api_signup():
         email = data.get("email", "").strip().lower()
         password = data.get("password", "")
         
-        print(f"Signup attempt for: {name} ({email})")  # Debug log
-        
         # Validation
         if not name or not email or not password:
-            print("Missing required fields")
             return jsonify({"error": "Name, email, and password are required"}), 400
         
         if len(password) < 6:
-            print("Password too short")
             return jsonify({"error": "Password must be at least 6 characters"}), 400
         
+        db = get_db()
         # Check if user already exists in MongoDB
-        existing_user = users_collection.find_one({"email": email})
+        existing_user = db.users.find_one({"email": email})
         if existing_user:
-            print(f"User already exists: {email}")
             return jsonify({"error": "User already exists"}), 409
         
         # Hash password
         password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        print(f"Password hashed successfully")  # Debug log
         
         # Store user in MongoDB
         user_data = {
@@ -1058,14 +1057,7 @@ def api_signup():
             }
         }
         
-        try:
-            users_collection.insert_one(user_data)
-            print(f"User stored in MongoDB: {email}")
-        except Exception as e:
-            print(f"MongoDB error: {e}")
-            # Fallback to in-memory storage
-            users_db[email] = user_data
-            print(f"User stored in memory: {email}")
+        db.users.insert_one(user_data)
         
         return jsonify({
             "message": "User created successfully",
@@ -1076,7 +1068,7 @@ def api_signup():
         }), 201
         
     except Exception as e:
-        print(f"Signup error: {e}")  # Debug log
+        print(f"Signup error: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
 @app.route("/api/auth/login", methods=["POST"])
@@ -1084,44 +1076,27 @@ def api_login():
     """User login endpoint"""
     try:
         data = request.get_json()
-        print(f"Login attempt - Data: {data}")  # Debug log
-        print(f"Request headers: {dict(request.headers)}")  # Debug log
-        print(f"Request method: {request.method}")  # Debug log
-        
         if not data:
-            print("No JSON data provided")
             return jsonify({"error": "No JSON data provided"}), 400
         
         email = data.get("email", "").strip().lower()
         password = data.get("password", "")
         
-        print(f"Login attempt for email: {email}")  # Debug log
-        
-        # Validation
         if not email or not password:
-            print("Missing email or password")
             return jsonify({"error": "Email and password are required"}), 400
         
+        db = get_db()
         # Check if user exists in MongoDB
-        user = users_collection.find_one({"email": email})
+        user = db.users.find_one({"email": email})
         if not user:
-            # Fallback to in-memory storage
-            if email not in users_db:
-                print(f"User not found: {email}")
-                return jsonify({"error": "Invalid credentials"}), 401
-            user = users_db[email]
-        
-        print(f"User found: {user['name']}")  # Debug log
+            return jsonify({"error": "Invalid credentials"}), 401
         
         # Verify password
         password_check = bcrypt.checkpw(password.encode('utf-8'), user["password_hash"].encode('utf-8'))
-        print(f"Password check result: {password_check}")  # Debug log
         
         if not password_check:
-            print("Password verification failed")
             return jsonify({"error": "Invalid credentials"}), 401
         
-        print("Login successful")  # Debug log
         return jsonify({
             "message": "Login successful",
             "user": {
@@ -1131,7 +1106,7 @@ def api_login():
         }), 200
         
     except Exception as e:
-        print(f"Login error: {e}")  # Debug log
+        print(f"Login error: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
 

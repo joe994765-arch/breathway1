@@ -1,16 +1,6 @@
-"""
-ML Model for Route Recommendation
-Uses XGBoost to predict user preferences and recommend optimal routes
-"""
-
-import xgboost as xgb
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
-import joblib
 import os
 from datetime import datetime
+# Heavy imports (xgboost, pandas, sklearn) are moved inside methods to save memory on Render
 
 class RouteRecommender:
     def __init__(self, model_path="route_model.json"):
@@ -26,6 +16,8 @@ class RouteRecommender:
         Generate synthetic training data for initial model
         In production, this would use real user selection history
         """
+        import numpy as np
+        import pandas as pd
         np.random.seed(42)
         
         data = []
@@ -72,6 +64,10 @@ class RouteRecommender:
     
     def train(self, training_data=None):
         """Train XGBoost model on route selection data"""
+        import xgboost as xgb
+        from sklearn.model_selection import train_test_split
+        from sklearn.metrics import accuracy_score
+        
         if training_data is None:
             print("Generating synthetic training data...")
             training_data = self.generate_training_data()
@@ -117,6 +113,7 @@ class RouteRecommender:
     def load_model(self):
         """Load trained model from file"""
         if os.path.exists(self.model_path):
+            import xgboost as xgb
             self.model = xgb.XGBClassifier()
             self.model.load_model(self.model_path)
             print(f"Model loaded from {self.model_path}")
@@ -128,6 +125,7 @@ class RouteRecommender:
         Predict user preference for a route
         Returns: 0 (fastest), 1 (cleanest), or 2 (balanced)
         """
+        import pandas as pd
         if not self.model:
             if not self.load_model():
                 print("No model found, training new model...")
