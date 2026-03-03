@@ -80,6 +80,13 @@ export interface CityInfo {
     country: string;
 }
 
+export interface HourlyForecast {
+    time: string;
+    temp: number;
+    condition: string;
+    aqi: number;
+}
+
 export interface ForecastData {
     date: string;
     day_name: string;
@@ -89,6 +96,7 @@ export interface ForecastData {
     wind_speed: number;
     condition: string;
     aqi: number;
+    hourly_data?: HourlyForecast[];
 }
 
 export interface ForecastResponse {

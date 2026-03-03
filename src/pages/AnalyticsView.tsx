@@ -4,6 +4,7 @@ import Footer from "@/components/Footer";
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 import ForecastAnalysis from "@/components/ForecastAnalysis";
 import StateMap from "@/components/StateMap";
+import NationalAQI from "@/components/NationalAQI";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Line, Bar } from "react-chartjs-2";
@@ -111,6 +112,9 @@ const AnalyticsView = () => {
 
         {/* State-wise Map */}
         <StateMap />
+
+        {/* National Air Quality Index */}
+        <NationalAQI />
 
         {/* Forecast Analysis Section */}
         <ForecastAnalysis defaultCity="New Delhi" />

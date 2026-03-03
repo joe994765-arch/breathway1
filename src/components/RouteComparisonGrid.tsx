@@ -18,6 +18,8 @@ const RouteComparisonGrid = ({ routes, recommendedIndex, onRouteSelect, selected
                 return <Zap className="h-5 w-5" />;
             case "cleanest":
                 return <Leaf className="h-5 w-5" />;
+            case "shortest":
+                return <Wind className="h-5 w-5" />; // Reusing Wind or we can import something like Map or Ruler. Let's use a standard one. Actually, 'Navigation' or 'Ruler' would be good. I'll just use MapPin as default, but let's import Ruler if it exists. Wait, MapPin is already default. Let's use MapPin for shortest.
             case "balanced":
                 return <Scale className="h-5 w-5" />;
             default:
@@ -31,6 +33,8 @@ const RouteComparisonGrid = ({ routes, recommendedIndex, onRouteSelect, selected
                 return "Fastest";
             case "cleanest":
                 return "Cleanest";
+            case "shortest":
+                return "Shortest";
             case "balanced":
                 return "Balanced";
             default:
@@ -43,7 +47,8 @@ const RouteComparisonGrid = ({ routes, recommendedIndex, onRouteSelect, selected
         if (aqi <= 100) return "text-yellow-600 bg-yellow-50";
         if (aqi <= 150) return "text-orange-600 bg-orange-50";
         if (aqi <= 200) return "text-red-600 bg-red-50";
-        return "text-purple-600 bg-purple-50";
+        if (aqi <= 300) return "text-purple-600 bg-purple-50";
+        return "text-red-900 bg-red-100";
     };
 
     const getAQILabel = (aqi: number) => {
@@ -51,7 +56,8 @@ const RouteComparisonGrid = ({ routes, recommendedIndex, onRouteSelect, selected
         if (aqi <= 100) return "Moderate";
         if (aqi <= 150) return "Unhealthy for Sensitive";
         if (aqi <= 200) return "Unhealthy";
-        return "Very Unhealthy";
+        if (aqi <= 300) return "Severe";
+        return "Hazardous";
     };
 
     const getTrafficColor = (status?: string) => {

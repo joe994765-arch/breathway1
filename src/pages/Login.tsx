@@ -34,6 +34,7 @@ const Login = () => {
       if (user.user?.name) {
         localStorage.setItem("userName", user.user.name);
       }
+      localStorage.setItem("lastLogin", new Date().toISOString());
       toast.success(`Welcome back, ${user.user?.name || "user"}!`);
       navigate("/dashboard");
     } catch (err: any) {
@@ -64,6 +65,7 @@ const Login = () => {
       const user = await res.json();
       localStorage.setItem("userEmail", signupData.email.trim().toLowerCase());
       localStorage.setItem("userName", signupData.name.trim());
+      localStorage.setItem("lastLogin", new Date().toISOString());
       toast.success(`Account created. Welcome, ${user.user?.name || "user"}!`);
       navigate("/dashboard");
     } catch (err: any) {

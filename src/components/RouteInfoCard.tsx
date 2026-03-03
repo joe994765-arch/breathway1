@@ -18,22 +18,19 @@ const RouteInfoCard = ({
   pollutionScore = "Low",
 }: RouteInfoCardProps) => {
   // Use real data if available, otherwise fallback to props
-  const displayDistance = routeData ? `${routeData.route.distance} km` : distance;
-  const displayTime = routeData ? `${routeData.route.duration} min` : time;
-  const displayAqi = routeData ? routeData.route.aqi : aqi;
+  const displayDistance = routeData ? `${routeData.routes[0].distance} km` : distance;
+  const displayTime = routeData ? `${routeData.routes[0].duration} min` : time;
+  const displayAqi = routeData ? routeData.routes[0].aqi : aqi;
   const displayPollution = routeData ?
     (displayAqi <= 50 ? "Low" : displayAqi <= 100 ? "Moderate" : "High") :
     pollutionScore;
   const getAQIColor = (aqi: number) => {
-    if (aqi <= 50) return "text-accent";
-    if (aqi <= 100) return "text-warning";
-    return "text-destructive";
-  };
-
-  const getAQIBg = (aqi: number) => {
-    if (aqi <= 50) return "bg-accent/10 border-accent/20";
-    if (aqi <= 100) return "bg-warning/10 border-warning/20";
-    return "bg-destructive/10 border-destructive/20";
+    if (aqi <= 50) return "text-green-600";
+    if (aqi <= 100) return "text-yellow-600";
+    if (aqi <= 150) return "text-orange-600";
+    if (aqi <= 200) return "text-red-600";
+    if (aqi <= 300) return "text-purple-600";
+    return "text-red-900";
   };
 
   return (
@@ -85,45 +82,45 @@ const RouteInfoCard = ({
           {/* Source Weather */}
           <div className="grid grid-cols-2 gap-4 p-4 bg-primary/5 rounded-lg">
             <div>
-              <h5 className="font-medium text-sm text-primary mb-2">Source: {routeData.route.source.city}</h5>
+              <h5 className="font-medium text-sm text-primary mb-2">Source: {routeData.routes[0].source.city}</h5>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
                   <Thermometer className="h-4 w-4" />
-                  <span>Temp: {routeData.route.source.temp}°C</span>
+                  <span>Temp: {routeData.routes[0].source.temp}°C</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Wind className="h-4 w-4" />
-                  <span>Wind: {routeData.route.source.wind_speed} m/s</span>
+                  <span>Wind: {routeData.routes[0].source.wind_speed} m/s</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Droplets className="h-4 w-4" />
-                  <span>Humidity: {routeData.route.source.humidity}%</span>
+                  <span>Humidity: {routeData.routes[0].source.humidity}%</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Eye className="h-4 w-4" />
-                  <span>Visibility: {routeData.route.source.visibility} km</span>
+                  <span>Visibility: {routeData.routes[0].source.visibility} km</span>
                 </div>
               </div>
             </div>
 
             <div>
-              <h5 className="font-medium text-sm text-primary mb-2">Destination: {routeData.route.destination.city}</h5>
+              <h5 className="font-medium text-sm text-primary mb-2">Destination: {routeData.routes[0].destination.city}</h5>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
                   <Thermometer className="h-4 w-4" />
-                  <span>Temp: {routeData.route.destination.temp}°C</span>
+                  <span>Temp: {routeData.routes[0].destination.temp}°C</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Wind className="h-4 w-4" />
-                  <span>Wind: {routeData.route.destination.wind_speed} m/s</span>
+                  <span>Wind: {routeData.routes[0].destination.wind_speed} m/s</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Droplets className="h-4 w-4" />
-                  <span>Humidity: {routeData.route.destination.humidity}%</span>
+                  <span>Humidity: {routeData.routes[0].destination.humidity}%</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Eye className="h-4 w-4" />
-                  <span>Visibility: {routeData.route.destination.visibility} km</span>
+                  <span>Visibility: {routeData.routes[0].destination.visibility} km</span>
                 </div>
               </div>
             </div>
@@ -132,15 +129,15 @@ const RouteInfoCard = ({
           {/* Averages */}
           <div className="grid grid-cols-3 gap-4 p-4 bg-secondary/5 rounded-lg">
             <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{routeData.route.averages.aqi}</div>
+              <div className="text-2xl font-bold text-primary">{routeData.routes[0].averages.aqi}</div>
               <div className="text-sm text-muted-foreground">Avg AQI</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{routeData.route.averages.temperature}°C</div>
+              <div className="text-2xl font-bold text-primary">{routeData.routes[0].averages.temperature}°C</div>
               <div className="text-sm text-muted-foreground">Avg Temp</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{routeData.route.averages.wind_speed} m/s</div>
+              <div className="text-2xl font-bold text-primary">{routeData.routes[0].averages.wind_speed} m/s</div>
               <div className="text-sm text-muted-foreground">Avg Wind</div>
             </div>
           </div>
@@ -150,17 +147,29 @@ const RouteInfoCard = ({
       <div className="mt-6 space-y-2">
         <p className="text-sm font-medium text-muted-foreground">Air Quality Legend</p>
         <div className="flex flex-wrap gap-2">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 border border-accent/20">
-            <div className="h-3 w-3 rounded-full bg-accent" />
-            <span className="text-xs font-medium">Clean (0-50)</span>
+          <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-green-50 border border-green-200">
+            <div className="h-2 w-2 rounded-full bg-green-500" />
+            <span className="text-xs font-medium text-green-700">Good (0-50)</span>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-warning/10 border border-warning/20">
-            <div className="h-3 w-3 rounded-full bg-warning" />
-            <span className="text-xs font-medium">Moderate (51-100)</span>
+          <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-yellow-50 border border-yellow-200">
+            <div className="h-2 w-2 rounded-full bg-yellow-500" />
+            <span className="text-xs font-medium text-yellow-700">Moderate (51-100)</span>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-destructive/10 border border-destructive/20">
-            <div className="h-3 w-3 rounded-full bg-destructive" />
-            <span className="text-xs font-medium">Polluted (100+)</span>
+          <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-orange-50 border border-orange-200">
+            <div className="h-2 w-2 rounded-full bg-orange-500" />
+            <span className="text-xs font-medium text-orange-700">Unhealthy for Sensitive (101-150)</span>
+          </div>
+          <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-red-50 border border-red-200">
+            <div className="h-2 w-2 rounded-full bg-red-500" />
+            <span className="text-xs font-medium text-red-700">Unhealthy (151-200)</span>
+          </div>
+          <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-purple-50 border border-purple-200">
+            <div className="h-2 w-2 rounded-full bg-purple-500" />
+            <span className="text-xs font-medium text-purple-700">Severe (201-300)</span>
+          </div>
+          <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-red-100 border border-red-950">
+            <div className="h-2 w-2 rounded-full bg-red-900" />
+            <span className="text-xs font-medium text-red-900">Hazardous (301+)</span>
           </div>
         </div>
       </div>

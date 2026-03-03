@@ -167,15 +167,19 @@ const AnalyticsDashboard = ({ userEmail }: AnalyticsDashboardProps) => {
         if (aqi <= 50) return "text-green-600";
         if (aqi <= 100) return "text-yellow-600";
         if (aqi <= 150) return "text-orange-600";
-        return "text-red-600";
+        if (aqi <= 200) return "text-red-600";
+        if (aqi <= 300) return "text-purple-600";
+        return "text-red-900";
     };
 
     const getAQIBadge = (aqi: number) => {
         if (aqi === 0) return { variant: "outline" as const, label: "No Data", color: "text-muted-foreground" };
         if (aqi <= 50) return { variant: "default" as const, label: "Good", color: "bg-green-100 text-green-800" };
         if (aqi <= 100) return { variant: "secondary" as const, label: "Moderate", color: "bg-yellow-100 text-yellow-800" };
-        if (aqi <= 150) return { variant: "destructive" as const, label: "Unhealthy", color: "bg-orange-100 text-orange-800" };
-        return { variant: "destructive" as const, label: "Hazardous", color: "bg-red-100 text-red-800" };
+        if (aqi <= 150) return { variant: "outline" as const, label: "Unhealthy for Sensitive", color: "bg-orange-100 text-orange-800" };
+        if (aqi <= 200) return { variant: "destructive" as const, label: "Unhealthy", color: "bg-red-100 text-red-800" };
+        if (aqi <= 300) return { variant: "destructive" as const, label: "Severe", color: "bg-purple-100 text-purple-800" };
+        return { variant: "destructive" as const, label: "Hazardous", color: "bg-red-900 text-white" };
     };
 
     if (loading) {

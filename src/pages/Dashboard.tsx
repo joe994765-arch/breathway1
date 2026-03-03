@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { RouteResponse, RouteInfo } from "@/lib/api";
+import NationalAQI from "@/components/NationalAQI";
 
 const Dashboard = () => {
   const [showResults, setShowResults] = useState(false);
@@ -51,12 +52,15 @@ const Dashboard = () => {
         {/* Main Layout Area */}
         {!showResults ? (
           /* Centered Initial View */
-          <div className="max-w-xl mx-auto py-12 animate-fade-in">
-            <RouteInputPanel
-              onSearch={handleSearch}
-              onRouteData={handleRouteData}
-              userEmail={userEmail}
-            />
+          <div className="space-y-8 animate-fade-in py-12">
+            <div className="max-w-xl mx-auto">
+              <RouteInputPanel
+                onSearch={handleSearch}
+                onRouteData={handleRouteData}
+                userEmail={userEmail}
+              />
+            </div>
+            <NationalAQI />
           </div>
         ) : (
           /* Results View (Side Panel + Map) */
@@ -72,7 +76,8 @@ const Dashboard = () => {
               />
 
               {/* User Profile */}
-              <UserProfile userEmail={userEmail} />
+              <UserProfile userEmail={userEmail} routeData={routeData} />
+
             </div>
 
             {/* Map Area */}

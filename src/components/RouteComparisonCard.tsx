@@ -21,15 +21,21 @@ const RouteComparisonCard = ({
   isFastest = false,
 }: RouteComparisonCardProps) => {
   const getAQIColor = (aqi: number) => {
-    if (aqi <= 50) return "text-accent";
-    if (aqi <= 100) return "text-warning";
-    return "text-destructive";
+    if (aqi <= 50) return "text-green-600";
+    if (aqi <= 100) return "text-yellow-600";
+    if (aqi <= 150) return "text-orange-600";
+    if (aqi <= 200) return "text-red-600";
+    if (aqi <= 300) return "text-purple-600";
+    return "text-red-900";
   };
 
   const getAQIBadge = (aqi: number) => {
-    if (aqi <= 50) return { label: "Clean", variant: "default" as const, className: "bg-accent/10 text-accent border-accent/20" };
-    if (aqi <= 100) return { label: "Moderate", variant: "secondary" as const, className: "bg-warning/10 text-warning border-warning/20" };
-    return { label: "Polluted", variant: "destructive" as const };
+    if (aqi <= 50) return { label: "Good", variant: "default" as const, className: "bg-green-100 text-green-800 border-green-200" };
+    if (aqi <= 100) return { label: "Moderate", variant: "secondary" as const, className: "bg-yellow-100 text-yellow-800 border-yellow-200" };
+    if (aqi <= 150) return { label: "Unhealthy for Sensitive", variant: "outline" as const, className: "bg-orange-100 text-orange-800 border-orange-200" };
+    if (aqi <= 200) return { label: "Unhealthy", variant: "destructive" as const, className: "bg-red-100 text-red-800 border-red-200" };
+    if (aqi <= 300) return { label: "Severe", variant: "destructive" as const, className: "bg-purple-100 text-purple-800 border-purple-200" };
+    return { label: "Hazardous", variant: "destructive" as const, className: "bg-red-900 text-white border-red-950" };
   };
 
   const badge = getAQIBadge(aqi);
@@ -84,9 +90,9 @@ const RouteComparisonCard = ({
           </div>
         </div>
 
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-all"
         >
           Select Route

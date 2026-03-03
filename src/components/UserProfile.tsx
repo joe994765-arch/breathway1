@@ -4,10 +4,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Clock, TrendingUp, Calendar, Mail, User } from "lucide-react";
-import { apiService } from "@/lib/api";
+import { apiService, RouteResponse } from "@/lib/api";
 
 interface UserProfileProps {
     userEmail: string;
+    routeData?: RouteResponse | null;
 }
 
 interface UserData {
@@ -21,7 +22,7 @@ interface UserData {
     };
 }
 
-const UserProfile = ({ userEmail }: UserProfileProps) => {
+const UserProfile = ({ userEmail, routeData }: UserProfileProps) => {
     const [userData, setUserData] = useState<UserData | null>(null);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
@@ -86,6 +87,26 @@ const UserProfile = ({ userEmail }: UserProfileProps) => {
         return name.split(' ').map(n => n[0]).join('').toUpperCase();
     };
 
+    const displayStats = {
+        totalRoutes: routeData ? routeData.routes.length : stats.totalRoutes,
+        bestAQI: routeData && routeData.routes.length > 0
+            ? Math.min(...routeData.routes.map(r => r.aqi))
+            : stats.bestAQI
+    };
+
+    const firstRoute = routeData?.routes?.[0];
+    const sourceData = firstRoute ? { city: firstRoute.source.city, aqi: firstRoute.source.aqi } : null;
+    const destData = firstRoute ? { city: firstRoute.destination.city, aqi: firstRoute.destination.aqi } : null;
+
+    const getAQIStatus = (aqi: number) => {
+        if (aqi <= 50) return { text: "Good", color: "text-green-600" };
+        if (aqi <= 100) return { text: "Moderate", color: "text-yellow-600" };
+        if (aqi <= 150) return { text: "Unhealthy for Sensitive", color: "text-orange-600" };
+        if (aqi <= 200) return { text: "Unhealthy", color: "text-red-500" };
+        if (aqi <= 300) return { text: "Severe", color: "text-purple-600" };
+        return { text: "Hazardous", color: "text-red-900" };
+    };
+
     const getOptimizeBadge = (optimize: string) => {
         if (optimize === "cleanest") {
             return <Badge variant="default" className="bg-green-100 text-green-800">Cleanest Route</Badge>;
@@ -116,23 +137,41 @@ const UserProfile = ({ userEmail }: UserProfileProps) => {
                             <MapPin className="h-4 w-4 text-primary" />
                             <span className="text-sm">Routes Planned</span>
                         </div>
-                        <span className="font-bold text-lg">{stats.totalRoutes}</span>
+                        <span className="font-bold text-lg">{displayStats.totalRoutes}</span>
                     </div>
 
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5">
-                        <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-primary" />
-                            <span className="text-sm">Last Login</span>
+                    {sourceData && (
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5">
+                            <div className="flex items-center gap-2">
+                                <MapPin className="h-4 w-4 text-primary" />
+                                <span className="text-sm">{sourceData.city} (Source)</span>
+                            </div>
+                            <span className={`font-bold text-sm ${getAQIStatus(sourceData.aqi).color}`}>
+                                {sourceData.aqi} ({getAQIStatus(sourceData.aqi).text})
+                            </span>
                         </div>
-                        <span className="text-xs text-muted-foreground">Today 9:45 AM</span>
-                    </div>
+                    )}
+
+                    {destData && (
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5">
+                            <div className="flex items-center gap-2">
+                                <MapPin className="h-4 w-4 text-primary" />
+                                <span className="text-sm">{destData.city} (Dest)</span>
+                            </div>
+                            <span className={`font-bold text-sm ${getAQIStatus(destData.aqi).color}`}>
+                                {destData.aqi} ({getAQIStatus(destData.aqi).text})
+                            </span>
+                        </div>
+                    )}
 
                     <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5">
                         <div className="flex items-center gap-2">
                             <TrendingUp className="h-4 w-4 text-primary" />
                             <span className="text-sm">Best AQI Route</span>
                         </div>
-                        <span className="font-bold text-sm text-green-600">{stats.bestAQI} (Good)</span>
+                        <span className={`font-bold text-sm ${getAQIStatus(displayStats.bestAQI).color}`}>
+                            {displayStats.bestAQI} ({getAQIStatus(displayStats.bestAQI).text})
+                        </span>
                     </div>
                 </div>
 

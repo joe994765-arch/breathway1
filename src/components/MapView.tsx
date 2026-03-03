@@ -46,13 +46,12 @@ const MapView = ({ className, routes = [], selectedIndex = 0, onSelectRoute }: M
   const [stateAQIData, setStateAQIData] = useState<StateAQI[]>([]);
   const [cityAQIData, setCityAQIData] = useState<CityAQI[]>([]);
 
-  // Function to get color based on AQI (Legacy helper for routes, though we accept backend colors now)
   const getAQIColor = (aqi: number) => {
     if (aqi <= 50) return "#22c55e"; // Green
     if (aqi <= 100) return "#eab308"; // Yellow
-    if (aqi <= 200) return "#f97316"; // Orange - Adjusted to match new scale logic for routes
-    if (aqi <= 300) return "#ef4444"; // Red
-    if (aqi <= 400) return "#a855f7"; // Purple
+    if (aqi <= 150) return "#f97316"; // Orange
+    if (aqi <= 200) return "#ef4444"; // Red
+    if (aqi <= 300) return "#a855f7"; // Purple
     return "#7f1d1d"; // Maroon
   };
 
@@ -137,8 +136,8 @@ const MapView = ({ className, routes = [], selectedIndex = 0, onSelectRoute }: M
 
     legend.onAdd = () => {
       const div = L.DomUtil.create("div", "info legend");
-      const grades = [0, 51, 101, 201, 301, 401];
-      const labels = ["Good", "Moderate", "Poor", "Unhealthy", "Severe", "Hazardous"];
+      const grades = [0, 51, 101, 151, 201, 301];
+      const labels = ["Good", "Moderate", "Unhealthy for Sensitive", "Unhealthy", "Severe", "Hazardous"];
       const colors = ["#22c55e", "#eab308", "#f97316", "#ef4444", "#a855f7", "#7f1d1d"];
 
       div.style.backgroundColor = "white";

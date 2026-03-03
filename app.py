@@ -141,36 +141,56 @@ def get_aqi_forecast(lat, lon):
         return []
 
 def process_forecast_data(weather_list, aqi_list):
-    """Process forecast data into daily summaries"""
+    """Process forecast data into daily summaries, including 3-hour blocks"""
     daily_data = {}
     
     # Process Weather
     for item in weather_list:
         dt = datetime.fromtimestamp(item["dt"])
         date_str = dt.strftime("%Y-%m-%d")
+        time_str = dt.strftime("%H:%M")
         
         if date_str not in daily_data:
             daily_data[date_str] = {
                 "temps": [],
                 "weather": {},
                 "wind": [],
-                "aqi": []
+                "aqi": [],
+                "hourly": []
             }
         
-        daily_data[date_str]["temps"].append(item["main"]["temp"])
+        temp = item["main"]["temp"]
+        condition = item["weather"][0]["main"]
+        
+        daily_data[date_str]["temps"].append(temp)
         daily_data[date_str]["wind"].append(item["wind"]["speed"])
         
-        condition = item["weather"][0]["main"]
         daily_data[date_str]["weather"][condition] = daily_data[date_str]["weather"].get(condition, 0) + 1
+        
+        # We will add AQI to this hourly block later
+        daily_data[date_str]["hourly"].append({
+            "time": time_str,
+            "temp": round(temp, 1),
+            "condition": condition,
+            "aqi": 0  # Default, to be updated
+        })
 
     # Process AQI
     for item in aqi_list:
         dt = datetime.fromtimestamp(item["dt"])
         date_str = dt.strftime("%Y-%m-%d")
+        time_str = dt.strftime("%H:%M")
         
         if date_str in daily_data:
             raw_aqi_index = item["main"]["aqi"]
-            daily_data[date_str]["aqi"].append(convert_aqi_to_raw(raw_aqi_index))
+            raw_aqi = convert_aqi_to_raw(raw_aqi_index)
+            daily_data[date_str]["aqi"].append(raw_aqi)
+            
+            # Find matching hourly block and update AQI
+            for hour_block in daily_data[date_str]["hourly"]:
+                if hour_block["time"] == time_str:
+                    hour_block["aqi"] = raw_aqi
+                    break
             
     # Summarize
     forecast = []
@@ -196,7 +216,8 @@ def process_forecast_data(weather_list, aqi_list):
             "avg_temp": round(sum(data["temps"]) / len(data["temps"]), 1),
             "wind_speed": round(sum(data["wind"]) / len(data["wind"]), 1),
             "condition": main_condition,
-            "aqi": avg_aqi
+            "aqi": avg_aqi,
+            "hourly_data": data["hourly"]
         })
         
     return sorted(forecast, key=lambda x: x["date"])[:5]
@@ -220,9 +241,9 @@ def get_route(src, dest, mode="driving-car", alternatives=True, preference="reco
             "avoid_features": []  # Can add features to avoid
         }
         body["alternative_routes"] = {
-            "share_factor": 0.6,
-            "target_count": 2, # Request 2 alternatives in this batch
-            "weight_factor": 1.4
+            "share_factor": 0.8,   # Allow up to 80% shared path (higher = more likely to find alternatives)
+            "target_count": 3,     # Request up to 3 routes (1 base + 2 alt)
+            "weight_factor": 2.0   # Allow alternatives to be up to 2x costlier (looser constraint)
         }
     
     try:
@@ -323,7 +344,8 @@ def get_aqi_for_point(lat, lon):
 
 def calculate_route_aqi(geometry, src_aqi, dest_aqi):
     """Calculate weighted average AQI along entire route"""
-    sampled_points = sample_route_points(geometry, interval_km=10)
+    # Increase interval to reduce API requests, especially for long routes
+    sampled_points = sample_route_points(geometry, interval_km=100)
     
     if len(sampled_points) <= 2:
         # For short routes, just average source and destination
@@ -331,8 +353,13 @@ def calculate_route_aqi(geometry, src_aqi, dest_aqi):
     
     aqi_values = [src_aqi]  # Start with source AQI
     
-    # Get AQI for middle points (skip first and last as we have those)
-    for point in sampled_points[1:-1]:
+    # Get AQI for middle points (limit to max 3 points to avoid slow API responses)
+    middle_points = sampled_points[1:-1]
+    if len(middle_points) > 3:
+        step = len(middle_points) / 3.0
+        middle_points = [middle_points[int(i * step)] for i in range(3)]
+        
+    for point in middle_points:
         aqi = get_aqi_for_point(point["lat"], point["lon"])
         if aqi:
             aqi_values.append(aqi)
@@ -378,9 +405,9 @@ def get_multiple_routes(src, dest, mode="driving-car", include_traffic=True):
     
     raw_routes = []
     
-    # Add fastest routes (up to 2)
+    # Add fastest routes (up to 3)
     if isinstance(fastest_routes, list):
-        raw_routes.extend(fastest_routes[:2])
+        raw_routes.extend(fastest_routes[:3])
     elif isinstance(fastest_routes, dict):
         raw_routes.append(fastest_routes)
         
@@ -389,8 +416,8 @@ def get_multiple_routes(src, dest, mode="driving-car", include_traffic=True):
         # Check uniqueness based on geometry length or distance comparison (simple heuristic)
         is_distinct = True
         for r in raw_routes:
-            # If distance is very close (< 100m difference), consider same
-            if abs(r["distance"] - shortest_route["distance"]) < 0.1: 
+            # If distance is very close (< 50m difference), consider same
+            if abs(r["distance"] - shortest_route["distance"]) < 0.05: 
                 is_distinct = False
                 break
         
@@ -509,15 +536,19 @@ def get_multiple_routes(src, dest, mode="driving-car", include_traffic=True):
     if processed_routes:
         fastest_idx = min(range(len(processed_routes)), key=lambda i: processed_routes[i]["traffic_adjusted_duration"] or processed_routes[i]["duration"])
         cleanest_idx = min(range(len(processed_routes)), key=lambda i: processed_routes[i]["aqi"])
+        shortest_idx = min(range(len(processed_routes)), key=lambda i: processed_routes[i]["distance"])
         
         # Reset types
         for r in processed_routes: r["type"] = "balanced"
         
-        processed_routes[fastest_idx]["type"] = "fastest"
-        processed_routes[cleanest_idx]["type"] = "cleanest"
+        # Priority mapping:
+        if processed_routes:
+            processed_routes[cleanest_idx]["type"] = "cleanest"
+            processed_routes[shortest_idx]["type"] = "shortest"
+            processed_routes[fastest_idx]["type"] = "fastest"
         
-        # If same route is both, usually it's just 'fastest' or 'recommended'. 
-        if fastest_idx == cleanest_idx:
+        # If same route is both fastest and shortest, keep it as fastest
+        if fastest_idx == shortest_idx:
              processed_routes[fastest_idx]["type"] = "fastest"
 
     # Calculate final scores
@@ -650,11 +681,12 @@ def calculate_traffic_adjusted_eta(base_duration, traffic_data):
     return round(adjusted_duration, 1)
 
 def aqi_color(aqi):
-    if aqi == 1: return "green"
-    elif aqi == 2: return "lightgreen"
-    elif aqi == 3: return "orange"
-    elif aqi == 4: return "red"
-    else: return "purple"
+    if aqi <= 50: return "green"
+    elif aqi <= 100: return "lightgreen"
+    elif aqi <= 150: return "orange"
+    elif aqi <= 200: return "red"
+    elif aqi <= 300: return "purple"
+    else: return "darkred"
 
 def create_map(src, dest, geometry):
     m = folium.Map(location=[(src["lat"] + dest["lat"]) / 2, (src["lon"] + dest["lon"]) / 2], zoom_start=6)

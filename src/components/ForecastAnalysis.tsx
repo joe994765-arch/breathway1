@@ -17,6 +17,7 @@ const ForecastAnalysis = ({ defaultCity = "Delhi" }: ForecastAnalysisProps) => {
     const [forecast, setForecast] = useState<ForecastData[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [openDay, setOpenDay] = useState<string | null>(null);
 
     useEffect(() => {
         fetchForecast(city);
@@ -180,25 +181,57 @@ const ForecastAnalysis = ({ defaultCity = "Delhi" }: ForecastAnalysisProps) => {
                             </Card>
                         )}
 
-                        <div className="space-y-2">
+                        <div className="space-y-4">
                             <h3 className="font-semibold text-sm">Daily Breakdown</h3>
                             {forecast.map((day) => (
-                                <div key={day.date} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors text-sm">
-                                    <div className="flex items-center gap-3">
-                                        <Badge variant="outline" className="w-[45px] justify-center">{day.day_name.slice(0, 3)}</Badge>
-                                        <div className="flex flex-col">
-                                            <span className="font-medium">{day.condition}</span>
-                                            <span className="text-xs text-muted-foreground">{day.min_temp}° - {day.max_temp}°</span>
+                                <div key={day.date} className="flex flex-col p-3 rounded-lg border bg-card text-card-foreground shadow-sm hover:border-primary/50 transition-colors">
+                                    <div className="flex items-center justify-between cursor-pointer" onClick={() => setOpenDay(openDay === day.date ? null : day.date)}>
+                                        <div className="flex items-center gap-3">
+                                            <Badge variant="outline" className="w-[45px] justify-center">{day.day_name.slice(0, 3)}</Badge>
+                                            <div className="flex flex-col">
+                                                <span className="font-medium text-sm">{day.condition}</span>
+                                                <span className="text-xs text-muted-foreground">{day.min_temp}° - {day.max_temp}°</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className={`text-xs font-bold px-2 py-1 rounded ${day.aqi <= 50 ? "bg-green-100 text-green-700" :
+                                                day.aqi <= 100 ? "bg-yellow-100 text-yellow-700" :
+                                                    "bg-red-100 text-red-700"
+                                                }`}>
+                                                AQI {day.aqi}
+                                            </div>
+                                            <span className="text-muted-foreground text-xs">
+                                                {openDay === day.date ? "▲" : "▼"}
+                                            </span>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className={`text-xs font-bold px-2 py-1 rounded ${day.aqi <= 50 ? "bg-green-100 text-green-700" :
-                                            day.aqi <= 100 ? "bg-yellow-100 text-yellow-700" :
-                                                "bg-red-100 text-red-700"
-                                            }`}>
-                                            AQI {day.aqi}
+
+                                    {/* Hourly Breakdown */}
+                                    {openDay === day.date && day.hourly_data && day.hourly_data.length > 0 && (
+                                        <div className="mt-4 pt-3 border-t">
+                                            <div className="text-xs font-semibold mb-2 text-muted-foreground flex justify-between pr-8">
+                                                <span className="w-12">Time</span>
+                                                <span className="w-16">Temp</span>
+                                                <span className="flex-1 text-center">Condition</span>
+                                                <span className="w-16 text-right">AQI</span>
+                                            </div>
+                                            <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
+                                                {day.hourly_data.map((hour, idx) => (
+                                                    <div key={idx} className="flex justify-between items-center text-xs py-1 px-2 rounded hover:bg-muted/50">
+                                                        <span className="w-12 font-medium">{hour.time}</span>
+                                                        <span className="w-16 text-muted-foreground">{hour.temp}°C</span>
+                                                        <span className="flex-1 text-center text-muted-foreground truncate">{hour.condition}</span>
+                                                        <span className={`w-16 text-right font-semibold ${hour.aqi <= 50 ? "text-green-600" :
+                                                            hour.aqi <= 100 ? "text-yellow-600" :
+                                                                "text-red-500"
+                                                            }`}>
+                                                            {hour.aqi}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
