@@ -778,7 +778,7 @@ def api_get_forecast(city):
 @app.route("/api/route", methods=["POST"])
 def api_get_route():
     """Get multiple route options between two cities"""
-    data = request.get_json()
+    data = request.get_json(force=True, silent=True)
     if not data:
         return jsonify({"error": "No JSON data provided"}), 400
     
@@ -1042,7 +1042,7 @@ def api_download_history(user_email, format):
 def api_signup():
     """User registration endpoint"""
     try:
-        data = request.get_json()
+        data = request.get_json(force=True, silent=True)
         print(f"Signup attempt - Data: {data}")  # Debug log
         
         if not data:
@@ -1112,7 +1112,7 @@ def api_signup():
 def api_login():
     """User login endpoint"""
     try:
-        data = request.get_json()
+        data = request.get_json(force=True, silent=True)
         print(f"Login attempt - Data: {data}")  # Debug log
         print(f"Request headers: {dict(request.headers)}")  # Debug log
         print(f"Request method: {request.method}")  # Debug log
