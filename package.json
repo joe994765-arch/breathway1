@@ -9,6 +9,7 @@
     "start:batch": "start_project.bat",
     "backend": "python app.py",
     "backend:install": "python -m pip install -r requirements.txt",
+    "prebuild": "chmod +x node_modules/.bin/vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
