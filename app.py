@@ -750,6 +750,21 @@ def api_get_weather(city):
         return jsonify({"error": "City not found or data unavailable"}), 404
     return jsonify(weather_data)
 
+@app.errorhandler(400)
+def bad_request(error):
+    print(f"Global 400 Error: {error}")
+    return jsonify({'error': str(error), 'type': 'Bad Request'}), 400
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # pass through HTTP errors
+    import werkzeug.exceptions
+    if isinstance(e, werkzeug.exceptions.HTTPException):
+        return jsonify({'error': str(e.description), 'type': e.name}), e.code
+    
+    print(f"Global Exception: {e}")
+    return jsonify({'error': str(e), 'type': 'Internal Server Error'}), 500
+
 @app.route("/api/forecast/<city>", methods=["GET"])
 def api_get_forecast(city):
     """Get 5-day weather and AQI forecast for a specific city"""
